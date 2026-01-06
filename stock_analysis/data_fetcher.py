@@ -156,17 +156,24 @@ def fetch_shareholder_data(stock_code, financial_data):
     """获取前十大股东数据"""
     try:
         if financial_data is None or len(financial_data) < 2:
-            print("  ⚠ 无法确定报告期，跳过获取股东数据")
+            print("  ⚠ 股东数据: 无法确定报告期")
             return None
 
         dates = financial_data['截止日期'].dt.strftime('%Y%m%d').unique()
         latest_date, prev_date = dates[-1], dates[-2]
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_latest = executor.submit(ak.stock_gdfx_top_10_em, symbol=stock_code, date=latest_date)
-            future_prev = executor.submit(ak.stock_gdfx_top_10_em, symbol=stock_code, date=prev_date)
-            df_latest = future_latest.result()
-            df_prev = future_prev.result()
+        # 尝试获取股东数据（东财接口可能不稳定）
+        df_latest = None
+        df_prev = None
+        try:
+            df_latest = ak.stock_gdfx_top_10_em(symbol=stock_code, date=latest_date)
+        except Exception:
+            pass  # 静默处理
+        
+        try:
+            df_prev = ak.stock_gdfx_top_10_em(symbol=stock_code, date=prev_date)
+        except Exception:
+            pass  # 静默处理
 
         if df_latest is not None and not df_latest.empty:
             df_latest['持股数量'] = pd.to_numeric(df_latest['持股数量'], errors='coerce')
@@ -180,8 +187,11 @@ def fetch_shareholder_data(stock_code, financial_data):
             
             print(f"  ✓ 股东数据: 已获取 {len(df_latest)} 名股东")
             return {'latest': merged_df, 'dates': {'latest': latest_date, 'prev': prev_date}}
+        else:
+            print("  ⚠ 股东数据: 接口暂不可用 (数据源限制)")
+            return None
     except Exception as e:
-        print(f"  ⚠ 获取股东数据失败: {e}")
+        print(f"  ⚠ 股东数据: 获取失败")
     return None
 
 

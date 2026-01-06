@@ -1632,15 +1632,21 @@ class StockAnalyzer:
                 
             # 保存回测图表
             try:
-                # 调整绘图backend，避免在无GUI环境下报错
-                # plt.switch_backend('Agg') 
-                # backtrader的plot比较特殊，直接保存可能需要trick
-                # 这里简单处理：如果能画就画，不能画就跳过
-                fig = cerebro.plot(style='candlestick', barup='red', bardown='green', volume=False)[0][0]
-                fig.set_size_inches(16, 9)
-                fig.savefig(f"{self.output_dir}/99_回测结果.png", dpi=100)
-                plt.close(fig)
-                self._log(f"  ✓ 生成图表: 99_回测结果.png")
+                # 切换到非交互式后端，避免弹出窗口
+                import matplotlib
+                matplotlib.use('Agg')
+                import matplotlib.pyplot as plt
+                
+                # backtrader plot with iplot=False to prevent popup
+                figs = cerebro.plot(style='candlestick', barup='red', bardown='green', volume=False, iplot=False)
+                if figs and figs[0] and figs[0][0]:
+                    fig = figs[0][0]
+                    fig.set_size_inches(16, 9)
+                    fig.savefig(f"{self.output_dir}/99_回测结果.png", dpi=100)
+                    plt.close(fig)
+                    self._log(f"  ✓ 生成图表: 99_回测结果.png")
+                else:
+                    self._log(f"  ⚠ 回测图表生成失败: 无有效图形对象")
             except Exception as e:
                 self._log(f"  ⚠ 无法生成回测图表: {e}")
 
@@ -3367,29 +3373,44 @@ class StockAnalyzer:
                 info = ak.stock_individual_info_em(symbol=code)
                 name = info[info['item'] == '股票简称']['value'].values[0]
 
-                # 2. 获取估值
-                val_df = ak.stock_a_lg_indicator(symbol=code)
-                pe = self._safe_float(val_df['pe_ttm'].iloc[-1])
-                pb = self._safe_float(val_df['pb'].iloc[-1])
+                # 2. 获取估值 - 使用 stock_zh_a_spot_em 获取实时PE/PB
+                spot_df = ak.stock_zh_a_spot_em()
+                stock_row = spot_df[spot_df['代码'] == code]
+                if stock_row.empty:
+                    raise ValueError(f"股票 {code} 不在A股实时行情中")
+                pe = self._safe_float(stock_row['市盈率-动态'].iloc[0])
+                pb = self._safe_float(stock_row['市净率'].iloc[0])
 
-                # 3. 获取财务摘要
+                # 3. 获取财务摘要 - 新格式处理
                 fin_df = ak.stock_financial_abstract(symbol=code)
-                fin_df = fin_df.set_index('指标').T.reset_index()
-                fin_df['截止日期'] = pd.to_datetime(fin_df['截止日期'], format='%Y%m%d')
-                annual_df = fin_df[fin_df['截止日期'].dt.month == 12]
-
-                # 4. 计算指标
-                net_margin = self._safe_float(annual_df['净利率(%)'].iloc[-1])
-                roe = self._safe_float(annual_df['净资产收益率(%)'].iloc[-1])
-                
-                # 计算3年营收CAGR
-                rev_col = next((c for c in annual_df.columns if '营业总收入' in c), None)
-                if rev_col and len(annual_df) >= 4:
-                    rev_start = self._safe_float(annual_df[rev_col].iloc[-4])
-                    rev_end = self._safe_float(annual_df[rev_col].iloc[-1])
-                    cagr = ((rev_end / rev_start) ** (1/3) - 1) * 100 if rev_start > 0 else 0
+                # 新格式：列名是日期，行是指标
+                # 找到年报日期列（以12月结尾的）
+                date_cols = [c for c in fin_df.columns if c not in ['选项', '指标'] and str(c).endswith('1231')]
+                if len(date_cols) < 1:
+                    # 没有年报数据，使用默认值
+                    net_margin, roe, cagr = 0, 0, 0
                 else:
+                    # 获取最新年报的净利率和ROE
+                    latest_year_col = sorted(date_cols)[-1]
+                    
+                    # 查找净利率行
+                    net_margin_row = fin_df[fin_df['指标'].str.contains('净利率', na=False)]
+                    net_margin = self._safe_float(net_margin_row[latest_year_col].iloc[0]) if not net_margin_row.empty else 0
+                    
+                    # 查找ROE行  
+                    roe_row = fin_df[fin_df['指标'].str.contains('净资产收益率', na=False)]
+                    roe = self._safe_float(roe_row[latest_year_col].iloc[0]) if not roe_row.empty else 0
+                    
+                    # 计算3年营收CAGR
                     cagr = 0
+                    if len(date_cols) >= 4:
+                        sorted_years = sorted(date_cols)
+                        rev_row = fin_df[fin_df['指标'].str.contains('营业总收入|营业收入', na=False, regex=True)]
+                        if not rev_row.empty:
+                            rev_start = self._safe_float(rev_row[sorted_years[-4]].iloc[0])
+                            rev_end = self._safe_float(rev_row[sorted_years[-1]].iloc[0])
+                            if rev_start > 0:
+                                cagr = ((rev_end / rev_start) ** (1/3) - 1) * 100
 
                 return {
                     'name': name,
