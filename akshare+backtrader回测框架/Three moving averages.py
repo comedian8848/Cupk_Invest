@@ -99,7 +99,7 @@ class SimpleCross(bt.Strategy):
                 self.close() 
                 print(f'{self.data.datetime.date()}: 卖出 - 价格: {self.data.close[0]:.2f}')
 
-    def stop():
+    def stop(self):
         print("\n=== 最新市场状态分析 ===")
         last_date = self.data.datetime.date(0)
         last_price = self.data.close[0]
