@@ -45,7 +45,7 @@ plt.rcParams['figure.dpi'] = 150
 
 
 import analysis
-import ths_impl  # 新增同花顺接口
+import industry_compare  # 行业对比模块 (基于 akshare)
 
 
 # ==================== 量化回测模块 ====================
@@ -1274,62 +1274,85 @@ class StockAnalyzer:
         self.scores['profitability'] = min(moat_score, 100)
 
     def _analyze_industry_comparison(self):
-        """(新增) 同行业对比分析 - 需pywencai支持"""
-        if not ths_impl.ENABLED:
-            # 静默跳过，不打印日志避免干扰
-            return
-
-        self._log("\n📊 2.1 同行业对比 (来源: 同花顺问财)")
+        """同行业对比分析 (基于 akshare)"""
+        self._log("\n📊 2.1 同行业对比")
         self._log("-" * 60)
         
-        df = ths_impl.get_industry_comparison(self.stock_code)
-        if df is None or df.empty:
-            self._log("  ⚠️ 获取对比数据失败或无数据")
+        # 使用已知行业或尝试查找
+        industry_name = self.industry
+        
+        # 如果行业名称为空或"未知"，尝试从行业板块查找
+        if not industry_name or industry_name == "未知":
+            self._log("  ⚠️ 未获取到行业信息，跳过同行业对比")
             return
-            
-        # 找到本公司
-        my_code = ths_impl.check_dependencies
-        # df 中 代码 列可能带后缀
         
-        # 打印前5名和本公司
-        # 格式化输出表头
-        header = f"{'简称':<8} | {'市值':<8} | {'毛利率':<6} | {'净利增':<6} | {'ROE':<5} | {'BVPS':<5}"
-        self._log(f"  {header}")
-        self._log(f"  {'-'*len(header)}")
+        # 获取行业成分股对比
+        df = industry_compare.get_industry_comparison(industry_name, self.stock_code)
         
+        if df is None or df.empty:
+            self._log(f"  ⚠️ 获取 [{industry_name}] 行业成分股失败")
+            return
+        
+        # 获取行业统计
+        stats = industry_compare.get_industry_stats(industry_name)
+        if stats:
+            self._log(f"  行业: {industry_name} | 成分股: {stats.get('成分股数', 'N/A')} 家")
+            pe_median = stats.get('PE中位数')
+            pb_median = stats.get('PB中位数')
+            if pe_median:
+                self._log(f"  行业PE中位数: {pe_median:.1f} | 行业PB中位数: {pb_median:.2f}" if pb_median else f"  行业PE中位数: {pe_median:.1f}")
+        
+        # 打印表头
+        self._log(f"\n  {'标记':<2} {'名称':<6} | {'股价':<8} | {'涨跌幅':<6} | {'PE':<6} | {'PB':<5}")
+        self._log(f"  {'-'*50}")
+        
+        # 显示前5名和本公司
+        shown_count = 0
         shown_myself = False
-        count = 0
+        my_row = None
         
         for _, row in df.iterrows():
-            is_me = str(row.get('代码','')).startswith(self.stock_code)
-            
-            # 只显示前5名和自己
-            if count >= 5 and not is_me:
-                continue
-                
-            name = str(row.get('名称', ''))[:4]
-            mkt_cap = self._format_number(row.get('总市值', 0))
-            g_margin = f"{row.get('毛利率', 0):.1f}%"
-            np_grow = f"{row.get('净利增速', 0):.1f}%"
-            roe = f"{row.get('ROE', 0):.1f}%"
-            bvps = f"{row.get('BVPS', 0):.2f}"
-            
-            # 高亮自己
-            prefix = "👉" if is_me else "  "
-            line = f"{prefix}{name:<8} | {mkt_cap:<8} | {g_margin:<6} | {np_grow:<6} | {roe:<5} | {bvps:<5}"
-            self._log(line)
+            code = str(row.get('代码', ''))
+            is_me = (code == self.stock_code)
             
             if is_me:
+                my_row = row
                 shown_myself = True
+            
+            # 只显示前5名
+            if shown_count < 5:
+                name = str(row.get('名称', ''))[:4]
+                price = row.get('股价', 0)
+                change = row.get('涨跌幅', 0)
+                pe = row.get('PE(动态)', 0)
+                pb = row.get('PB', 0)
                 
-            count += 1
-            if count >= 5 and shown_myself:
-                break
+                prefix = "👉" if is_me else "  "
+                price_str = f"{price:.2f}" if price else "-"
+                change_str = f"{change:+.2f}%" if change else "-"
+                pe_str = f"{pe:.1f}" if pe and pe > 0 else "-"
+                pb_str = f"{pb:.2f}" if pb and pb > 0 else "-"
                 
-        if not shown_myself:
-            # 如果也没找到自己(可能排名太靠后)，尝试打印最后一行? 
-            # 暂时忽略
-            self._log("  (注: 列表中未找到本公司，可能排名较后)")
+                self._log(f"  {prefix} {name:<6} | {price_str:<8} | {change_str:<6} | {pe_str:<6} | {pb_str:<5}")
+                shown_count += 1
+        
+        # 如果本公司不在前5，单独显示
+        if not shown_myself and my_row is not None:
+            self._log(f"  ...")
+            name = str(my_row.get('名称', ''))[:4]
+            price = my_row.get('股价', 0)
+            change = my_row.get('涨跌幅', 0)
+            pe = my_row.get('PE(动态)', 0)
+            pb = my_row.get('PB', 0)
+            
+            price_str = f"{price:.2f}" if price else "-"
+            change_str = f"{change:+.2f}%" if change else "-"
+            pe_str = f"{pe:.1f}" if pe and pe > 0 else "-"
+            pb_str = f"{pb:.2f}" if pb and pb > 0 else "-"
+            
+            self._log(f"  👉 {name:<6} | {price_str:<8} | {change_str:<6} | {pe_str:<6} | {pb_str:<5}")
+        elif not shown_myself:
+            self._log(f"\n  (注: 未在 [{industry_name}] 行业中找到本公司)")
 
     def _analyze_risks(self, df, latest):
         """分析财务风险"""
@@ -1411,29 +1434,6 @@ class StockAnalyzer:
                     if inventory_ratio > 0.5:
                         risk_items.append("🟠 存货占比高 (可能有积压)")
                         safety_score -= 10
-
-            # 供应链集中度 (同花顺数据)
-            if ths_impl.ENABLED:
-                sc_info = ths_impl.get_supply_chain_info(self.stock_code)
-                if sc_info:
-                    c_pct = sc_info.get('top5_customers_pct', 0)
-                    s_pct = sc_info.get('top5_suppliers_pct', 0)
-                    
-                    # 格式化显示，注意有些是字符串带%
-                    try:
-                        c_val = float(str(c_pct).replace('%', ''))
-                        s_val = float(str(s_pct).replace('%', ''))
-                        
-                        self._log(f"  • 前五大客户占比: {c_val:.1f}%")
-                        self._log(f"  • 前五大供应商占比: {s_val:.1f}%")
-                        
-                        if c_val > 50:
-                            risk_items.append("🟠 客户高度依赖 (>50%)")
-                            safety_score -= 10
-                        if s_val > 50:
-                            risk_items.append("🟠 供应商高度依赖 (>50%)")
-                    except:
-                        pass
         
         # 输出风险汇总
         if risk_items:
