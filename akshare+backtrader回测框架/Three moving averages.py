@@ -71,6 +71,7 @@ class SimpleCross(bt.Strategy):
         ma15=15, # 长期均线 
         current_shares=0, # 用户当前持仓
         avg_cost=0, # 用户持仓成本
+        symbol="", # 股票代码
     )  
 
     def __init__(self):
@@ -180,6 +181,39 @@ class SimpleCross(bt.Strategy):
             else:
                 print(">>> 建议: 空仓观望。当前无明确机会。")
 
+        # === ⚡️ 实时行情校验 ⚡️ ===
+        print("\n=== ⚡️ 实时行情校验 ⚡️ ===")
+        try:
+            print(f"正在获取 {self.p.symbol} 的实时行情 (请稍候)...")
+            # 使用 ak.stock_zh_a_spot_em 获取实时行情
+            spot_df = ak.stock_zh_a_spot_em()
+            stock_row = spot_df[spot_df['代码'] == self.p.symbol]
+            
+            if not stock_row.empty:
+                real_price = float(stock_row.iloc[0]['最新价'])
+                change_pct = float(stock_row.iloc[0]['涨跌幅'])
+                
+                print(f"股票: {self.p.symbol}")
+                print(f"当前最新价: {real_price} (涨跌: {change_pct}%)")
+                
+                # Re-calculate user profit with real price
+                user_shares = self.p.current_shares
+                user_cost = self.p.avg_cost
+                
+                if user_shares > 0:
+                    real_profit_pct = (real_price - user_cost) / user_cost * 100
+                    diff_price = real_price - last_price # Difference from backtest end data
+                    
+                    print(f"基于实时价盈亏: {real_profit_pct:.2f}%")
+                    if abs(diff_price) / last_price > 0.01:
+                        print(f"⚠️ 注意: 实时价格与回测数据(昨日收盘 {last_price:.2f}) 偏差 {(diff_price/last_price)*100:.2f}%")
+                        print("建议以实时价格对应的盈亏为准。")
+            else:
+                print("未查询到实时行情，可能代码有误或停牌。")
+
+        except Exception as e:
+            print(f"实时行情获取失败: {e}")
+
         print("========================\n")                
 # Create Cerebro engine 
 cerebro = bt.Cerebro() 
@@ -188,7 +222,7 @@ data = bt.feeds.PandasData(dataname=df)
 # Add data feed to Cerebro 
 cerebro.adddata(data)  
 # Add strategy 
-cerebro.addstrategy(SimpleCross, ma5=ma_short, ma10=ma_medium, ma15=ma_long, current_shares=current_shares, avg_cost=avg_cost)  
+cerebro.addstrategy(SimpleCross, ma5=ma_short, ma10=ma_medium, ma15=ma_long, current_shares=current_shares, avg_cost=avg_cost, symbol=symbol)  
 # Set initial cash 
 cerebro.broker.setcash(initial_cash)  
 # Set commission 
