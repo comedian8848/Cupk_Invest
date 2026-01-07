@@ -3,13 +3,26 @@
 # 📈 Analysis Pro 全维投资分析框架 v3.0
 
 **基于 Python 的综合金融分析工具 (股票/期货)**  
-覆盖数据获取 → 基本面/库存/基差分析 → 财报解读 → 量化回测 → 自动报告生成
+覆盖数据获取 → 基本面/库存/基差分析 → 财报解读 → 量化回测 → **网页看板** 
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![React](https://img.shields.io/badge/React-19-61dafb.svg)
+![Flask](https://img.shields.io/badge/Flask-3.1+-black.svg)
 ![akshare](https://img.shields.io/badge/Data-akshare-green.svg)
 ![backtrader](https://img.shields.io/badge/Backtest-backtrader-orange.svg)
 
 </div>
+
+---
+
+## 🎯 核心亮点
+
+✅ **全面覆盖** - 股票和期货一体化分析框架  
+✅ **智能识别** - 自动区分股票/期货代码，支持中文名称输入  
+✅ **高质量报告** - 自动生成 20+ 维度的可视化分析报告  
+✅ **网页看板** - 专业简洁的 React 交互界面，实时在线分析  
+✅ **模型完整** - 包含 DCF/DDM/EVA 等 8 大估值模型  
+✅ **量化验证** - 集成 Backtrader 双均线回测策略  
 
 ---
 
@@ -107,6 +120,43 @@ cd akshare+backtrader回测框架
 python "Double Moving Average.py"    # 运行策略
 ```
 
+### 4. 🚀 启动 Web 看板 (New!)
+
+全新的 **React + Flask** 网页版报告查看器，专业简洁设计，支持实时分析。
+
+#### 首次设置 (仅需一次)
+
+```bash
+cd web_dashboard
+npm install
+cd ..
+```
+
+#### 启动看板
+
+```bash
+# 一键启动：自动开启后端API + 前端界面
+python start_dashboard.py
+```
+
+系统会自动打开浏览器访问 `http://localhost:5173`
+
+#### 看板功能
+
+| 功能 | 说明 |
+|------|------|
+| 📋 **报告列表** | 浏览所有已生成的分析报告 |
+| 🔍 **报告详情** | 分类查看股票/期货各维度图表 (Dashboard/趋势/估值/财务/技术) |
+| 🖼️ **图表放大** | 点击即可全屏查看高清图表 |
+| ⚡ **实时分析** | 直接输入股票/期货代码，网页中即时运行分析 |
+| 📊 **数据摘要** | 显示股票名称、行业、分析日期等元信息 |
+
+#### 浏览器支持
+
+- Chrome/Edge (推荐，最佳体验)
+- Safari/Firefox (全兼容)
+- 响应式设计，支持平板查看
+
 ---
 
 ## 🔗 工作流程
@@ -126,6 +176,8 @@ python "Double Moving Average.py"    # 运行策略
 ---
 
 ## ⚙️ 配置说明
+
+### Python 分析参数
 
 编辑 `stock_analysis/config.py` 可自定义：
 
@@ -151,6 +203,89 @@ KLINE_YEARS = 10                # K线数据年限
 # 可视化
 FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 ```
+
+---
+
+## 🌐 Web Dashboard 架构
+
+### 技术栈
+
+| 层级 | 技术 | 版本 | 用途 |
+|------|------|------|------|
+| **前端** | React | 19 | UI 组件与交互 |
+| **前端** | Vite | 7.3+ | 开发服务器与构建 |
+| **前端** | lucide-react | 最新 | 图标库 |
+| **前端** | axios | 最新 | HTTP 客户端 |
+| **后端** | Flask | 3.1.2 | API 服务器 |
+| **后端** | flask-cors | 最新 | 跨域资源共享 |
+| **后端** | Python | 3.9+ | 分析引擎 |
+
+### API 端点
+
+```
+POST   /api/analyze              # 启动新分析任务
+GET    /api/analyze/<task_id>    # 查询分析进度和结果
+GET    /api/reports              # 列出所有报告
+GET    /api/reports/<id>         # 获取报告详情
+GET    /api/reports/<id>/summary # 获取报告数据摘要
+GET    /api/images/<path>        # 获取报告图片
+```
+
+### 数据流
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Web Browser                              │
+│  ┌──────────────────┐  ┌──────────────────┐                │
+│  │  Stock Input UI  │  │  Report Gallery  │                │
+│  └────────┬─────────┘  └────────┬─────────┘                │
+└───────────┼─────────────────────┼──────────────────────────┘
+            │                     │
+            │ HTTP/JSON           │ HTTP/JSON
+            ↓                     ↓
+      ┌─────────────────────────────────────┐
+      │      Flask API Server (5001)        │
+      │  ┌──────────────────────────────┐   │
+      │  │  /api/analyze (POST)         │   │
+      │  │  /api/reports (GET)          │   │
+      │  │  /api/images/<path> (GET)    │   │
+      │  └──────────────────────────────┘   │
+      └──────┬────────────────────────┬──────┘
+             │                        │
+             ↓                        ↓
+      ┌──────────────────┐  ┌──────────────────┐
+      │ stock_analysis   │  │ /分析报告_*/     │
+      │ (Python)         │  │ (PNG + JSON)     │
+      │                  │  │                  │
+      │ • 多线程抓取     │  │ • 图表缓存       │
+      │ • 指标计算       │  │ • 元数据存储     │
+      │ • 实时返回进度   │  │                  │
+      └──────────────────┘  └──────────────────┘
+```
+
+### 文件结构
+
+```
+web_dashboard/
+├── src/
+│   ├── App.jsx          # 主应用组件（4个子组件）
+│   ├── geek.css         # 全局样式（浅色主题）
+│   ├── main.jsx         # 入口
+│   └── index.css        # Tailwind 基础样式
+├── public/
+├── package.json         # npm 依赖定义
+├── vite.config.js       # Vite 配置
+└── index.html           # HTML 入口
+```
+
+### 核心组件
+
+| 组件 | 职责 | 交互 |
+|------|------|------|
+| **App** | 全局状态管理 + 路由切换 | 左侧 Tab 切换 |
+| **StockAnalyzer** | 新建分析表单 + 进度监控 | 输入股票/期货代码 → 轮询进度 |
+| **ReportDetail** | 报告详情展示 + 分类标签页 | 点击标签页切换图表分类 |
+| **ImageCard** | 图片卡片 + 全屏预览 | 点击放大 ↔ 缩小 |
 
 ---
 
@@ -326,6 +461,22 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 ## ❓ 常见问题 FAQ
 
 <details>
+<summary><b>Q0: Web Dashboard 如何使用？</b></summary>
+
+**A**: 
+1. 进入 `web_dashboard` 目录执行 `npm install` (首次)
+2. 返回项目根目录执行 `python start_dashboard.py`
+3. 自动打开浏览器访问 `http://localhost:5173`
+4. 选择已生成的报告浏览，或输入股票/期货代码新建分析
+
+**端口说明**:
+- 前端 (React): http://localhost:5173
+- 后端 (Flask): http://localhost:5001
+
+如端口被占用，可修改 `start_dashboard.py` 和 `stock_analysis/server.py` 中的端口号。
+</details>
+
+<details>
 <summary><b>Q1: 为什么某些股票无法生成行业对标分析？</b></summary>
 
 **A**: 可能原因：
@@ -337,13 +488,44 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 </details>
 
 <details>
-<summary><b>Q2: 期货分析支持查看指定合约吗？</b></summary>
+<summary><b>Q2: Web Dashboard 中的新分析功能支持哪些输入格式？</b></summary>
+
+**A**: 支持以下格式：
+
+**股票**:
+- 6位代码: `600519`、`000858`
+- 中文名称: `茅台`、`五粮液`
+
+**期货**:
+- 品种代码: `RB`、`M`、`AU`
+- 中文名称: `螺纹钢`、`豆粕`、`黄金`
+
+系统会自动识别并映射到标准代码。输入后点击 **"开始分析"** 按钮，后台运行分析任务，进度条会实时更新。
+</details>
+
+<details>
+<summary><b>Q3: Dashboard 中的分析需要多长时间？</b></summary>
+
+**A**: 
+- **股票分析**: 1-3 分钟 (取决于网络和 CPU)
+- **期货分析**: 30-60 秒 (数据量较小)
+
+优化建议：
+1. 修改 `stock_analysis/config.py` 中 `KLINE_YEARS=5` (默认10年)
+2. 增加 `MAX_WORKERS=16` (默认8)
+3. 如不需要回测，注释掉 `analyzer.run_backtest()` 行
+
+分析完成后，报告会自动出现在左侧列表中。
+</details>
+
+<details>
+<summary><b>Q4: 期货分析支持查看指定合约吗？</b></summary>
 
 **A**: 当前版本仅支持主连合约分析。如需指定合约，可修改 `FuturesAnalyzer` 类中的 `ak.futures_main_sina()` 为 `ak.futures_zh_spot()` 并手动指定合约代码。
 </details>
 
 <details>
-<summary><b>Q3: 如何加快分析速度？</b></summary>
+<summary><b>Q5: 如何加快分析速度？</b></summary>
 
 **A**: 
 1. 降低 `config.py` 中的 `KLINE_YEARS` (默认10年改为5年)
@@ -352,7 +534,7 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 </details>
 
 <details>
-<summary><b>Q4: 估值模型 (DCF/DDM/EVA) 如何调整参数？</b></summary>
+<summary><b>Q6: 估值模型 (DCF/DDM/EVA) 如何调整参数？</b></summary>
 
 **A**: 编辑 `config.py`:
 - **DCF**: 调整 `DISCOUNT_RATE`(折现率) 和 `TERMINAL_GROWTH`(永续增长率)
@@ -363,7 +545,7 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 </details>
 
 <details>
-<summary><b>Q5: 数据获取失败怎么办？</b></summary>
+<summary><b>Q7: 数据获取失败怎么办？</b></summary>
 
 **A**: 
 1. 检查网络连接
@@ -373,7 +555,7 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 </details>
 
 <details>
-<summary><b>Q6: 能否批量分析多只股票？</b></summary>
+<summary><b>Q8: 能否批量分析多只股票？</b></summary>
 
 **A**: 可以使用 Shell 脚本批量运行:
 ```bash
@@ -396,6 +578,12 @@ done
 - ✨ 期货支持30+品种，覆盖金属/能源/农产品/黑色系
 - 📊 期货综合评分系统 (0-100分多空判断)
 - 🎨 期货报告一张图展示5维分析
+- 🌐 **Web Dashboard 上线**: React + Flask 网页版报告查看器
+  - 📋 报告列表与详情浏览
+  - 🔍 分类图表查看 (Dashboard/趋势/估值/财务/技术)
+  - 🖼️ 图表全屏放大预览
+  - ⚡ 网页中实时运行分析，支持输入股票/期货代码
+  - 📱 响应式设计，专业简洁 UI
 
 ### v2.1 (2025)
 - 📈 完善行业对标分析雷达图
@@ -414,6 +602,10 @@ done
 
 | 问题 | 解决方案 |
 |------|----------|
+| Dashboard 无法启动 | 检查 Node.js 版本 (>=18)，执行 `npm install` 更新依赖 |
+| 前后端端口冲突 | 修改 `start_dashboard.py` 和 `server.py` 中的端口号 |
+| 分析任务卡住 | 检查后台进程是否崩溃，查看终端错误日志 |
+| 图片无法加载 | 确保后端 Flask 服务运行正常，检查网络连接 |
 | akshare 接口超时 | 降低 `MAX_WORKERS` 或重试 |
 | 回测功能不可用 | 执行 `pip install backtrader` |
 | 中文乱码 | 修改 `config.py` 中 `FONT_FAMILY` |
@@ -451,6 +643,28 @@ done
 - 遵循 PEP 8 代码风格
 - 添加必要的注释和文档字符串
 - 新增功能需包含使用示例
+
+### Dashboard 开发
+
+**前端开发** (React):
+```bash
+cd web_dashboard
+npm run dev          # 启动开发服务器 (带热更新)
+npm run build        # 打包生产版本
+```
+
+**后端开发** (Flask):
+```bash
+cd stock_analysis
+# 修改 server.py 后自动重载 (debug mode)
+python server.py
+```
+
+**UI 组件开发建议**:
+- 新组件放在 `App.jsx` 中或创建 `components/` 目录
+- 使用 Tailwind CSS 类名 + `geek.css` 全局样式
+- 参考 `ImageCard` 组件实现 Lightbox 模式
+- 所有 API 调用使用 axios + try-catch 错误处理
 
 ---
 

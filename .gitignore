@@ -28,27 +28,22 @@ stock_analysis/分析报告_*/
 期货报告_*.png
 stock_analysis/期货报告_*.png
 
-# 数据缓存文件
+# 数据缓存
 *.pkl
 *.csv
-# 保留 requirements.txt 但忽略其他普通 txt
+*.db
 分析报告.txt
 stock_analysis/分析报告.txt
-*.db
+stock_analysis/analysis_data.json
+analysis_data.json
 
 # 日志文件
 *.log
 
-# 测试覆盖率报告
-htmlcov/
-.coverage
-.coverage.*
-.pytest_cache/
-
-# 构建产物
-build/
-dist/
-*.egg-info/
+# 前端构建产物 (Web Dashboard)
+web_dashboard/node_modules/
+web_dashboard/dist/
+web_dashboard/.eslintcache
 
 # 系统文件
 Thumbs.db
