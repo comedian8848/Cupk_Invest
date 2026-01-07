@@ -45,6 +45,7 @@ plt.rcParams['figure.dpi'] = 150
 
 
 import analysis
+import industry_compare  # 行业对比模块 (基于 akshare)
 
 
 # ==================== 量化回测模块 ====================
@@ -1108,6 +1109,9 @@ class StockAnalyzer:
         
         # 2. 核心竞争力
         self._analyze_competitiveness(df, latest)
+
+        # 2.1 同行业对比 (同花顺数据)
+        self._analyze_industry_comparison()
         
         # 3. 财务安全与风险
         self._analyze_risks(df, latest)
@@ -1268,7 +1272,88 @@ class StockAnalyzer:
             self._log(f"\n  ⚠️ 护城河评估: 较弱 (得分: {moat_score})")
         
         self.scores['profitability'] = min(moat_score, 100)
-    
+
+    def _analyze_industry_comparison(self):
+        """同行业对比分析 (基于 akshare)"""
+        self._log("\n📊 2.1 同行业对比")
+        self._log("-" * 60)
+        
+        # 使用已知行业或尝试查找
+        industry_name = self.industry
+        
+        # 如果行业名称为空或"未知"，尝试从行业板块查找
+        if not industry_name or industry_name == "未知":
+            self._log("  ⚠️ 未获取到行业信息，跳过同行业对比")
+            return
+        
+        # 获取行业成分股对比
+        df = industry_compare.get_industry_comparison(industry_name, self.stock_code)
+        
+        if df is None or df.empty:
+            self._log(f"  ⚠️ 获取 [{industry_name}] 行业成分股失败")
+            return
+        
+        # 获取行业统计
+        stats = industry_compare.get_industry_stats(industry_name)
+        if stats:
+            self._log(f"  行业: {industry_name} | 成分股: {stats.get('成分股数', 'N/A')} 家")
+            pe_median = stats.get('PE中位数')
+            pb_median = stats.get('PB中位数')
+            if pe_median:
+                self._log(f"  行业PE中位数: {pe_median:.1f} | 行业PB中位数: {pb_median:.2f}" if pb_median else f"  行业PE中位数: {pe_median:.1f}")
+        
+        # 打印表头
+        self._log(f"\n  {'标记':<2} {'名称':<6} | {'股价':<8} | {'涨跌幅':<6} | {'PE':<6} | {'PB':<5}")
+        self._log(f"  {'-'*50}")
+        
+        # 显示前5名和本公司
+        shown_count = 0
+        shown_myself = False
+        my_row = None
+        
+        for _, row in df.iterrows():
+            code = str(row.get('代码', ''))
+            is_me = (code == self.stock_code)
+            
+            if is_me:
+                my_row = row
+                shown_myself = True
+            
+            # 只显示前5名
+            if shown_count < 5:
+                name = str(row.get('名称', ''))[:4]
+                price = row.get('股价', 0)
+                change = row.get('涨跌幅', 0)
+                pe = row.get('PE(动态)', 0)
+                pb = row.get('PB', 0)
+                
+                prefix = "👉" if is_me else "  "
+                price_str = f"{price:.2f}" if price else "-"
+                change_str = f"{change:+.2f}%" if change else "-"
+                pe_str = f"{pe:.1f}" if pe and pe > 0 else "-"
+                pb_str = f"{pb:.2f}" if pb and pb > 0 else "-"
+                
+                self._log(f"  {prefix} {name:<6} | {price_str:<8} | {change_str:<6} | {pe_str:<6} | {pb_str:<5}")
+                shown_count += 1
+        
+        # 如果本公司不在前5，单独显示
+        if not shown_myself and my_row is not None:
+            self._log(f"  ...")
+            name = str(my_row.get('名称', ''))[:4]
+            price = my_row.get('股价', 0)
+            change = my_row.get('涨跌幅', 0)
+            pe = my_row.get('PE(动态)', 0)
+            pb = my_row.get('PB', 0)
+            
+            price_str = f"{price:.2f}" if price else "-"
+            change_str = f"{change:+.2f}%" if change else "-"
+            pe_str = f"{pe:.1f}" if pe and pe > 0 else "-"
+            pb_str = f"{pb:.2f}" if pb and pb > 0 else "-"
+            
+            self._log(f"  👉 {name:<6} | {price_str:<8} | {change_str:<6} | {pe_str:<6} | {pb_str:<5}")
+        elif not shown_myself:
+            self._log(f"\n  (注: 未在 [{industry_name}] 行业中找到本公司)")
+
     def _analyze_risks(self, df, latest):
         """分析财务风险"""
         self._log("\n⚠️ 3. 财务风险评估")
@@ -1310,28 +1395,45 @@ class StockAnalyzer:
                 elif current_ratio > 2:
                     self._log(f"    → 短期偿债能力强")
             
-            # 应收账款风险
+            # 应收账款与坏账风险 (最大坏账可能)
             receivables = self._safe_float(bs_latest.get('应收账款'))
+            notes_recv = self._safe_float(bs_latest.get('应收票据'))
+            other_recv = self._safe_float(bs_latest.get('其他应收款'))
+            
+            # 广义应收款 = 应收 + 票据 + 其他 (可能是坏账的极限)
+            broad_receivables = receivables + notes_recv + other_recv
+            
             revenue_col = next((c for c in df.columns if '营业总收入' in c or '营业收入' in c), None)
-            if revenue_col and receivables > 0:
+            total_assets = self._safe_float(bs_latest.get('资产总计'))
+            
+            if revenue_col and broad_receivables > 0:
                 revenue = self._safe_float(latest[revenue_col])
+                
                 if revenue > 0:
-                    receivables_ratio = receivables / revenue
-                    self._log(f"  • 应收账款/营收: {receivables_ratio:.1%}")
+                    recv_to_rev = broad_receivables / revenue
+                    recv_to_asset = broad_receivables / total_assets if total_assets > 0 else 0
                     
-                    if receivables_ratio > 0.5:
-                        risk_items.append("🟠 应收账款占比高")
-                        safety_score -= 15
+                    self._log(f"  • 广义应收款: {self._format_number(broad_receivables)} (含票据/其他)")
+                    self._log(f"  • 应收/营收比: {recv_to_rev:.1%}")
+                    self._log(f"  • 最大坏账敞口/总资产: {recv_to_asset:.1%}")
+                    
+                    if recv_to_rev > 0.6:
+                        risk_items.append("🔴 应收账款过高 (可能虚增营收)")
+                        safety_score -= 20
+                    elif recv_to_rev > 0.3:
+                        risk_items.append("🟠 回款压力较大")
+                        safety_score -= 10
             
             # 存货风险
             inventory = self._safe_float(bs_latest.get('存货'))
             if revenue_col and inventory > 0:
-                inventory_ratio = inventory / revenue
-                self._log(f"  • 存货/营收: {inventory_ratio:.1%}")
-                
-                if inventory_ratio > 0.5:
-                    risk_items.append("🟠 存货占比高")
-                    safety_score -= 10
+                if revenue > 0:
+                    inventory_ratio = inventory / revenue
+                    self._log(f"  • 存货/营收: {inventory_ratio:.1%}")
+                    
+                    if inventory_ratio > 0.5:
+                        risk_items.append("🟠 存货占比高 (可能有积压)")
+                        safety_score -= 10
         
         # 输出风险汇总
         if risk_items:
@@ -1530,15 +1632,21 @@ class StockAnalyzer:
                 
             # 保存回测图表
             try:
-                # 调整绘图backend，避免在无GUI环境下报错
-                # plt.switch_backend('Agg') 
-                # backtrader的plot比较特殊，直接保存可能需要trick
-                # 这里简单处理：如果能画就画，不能画就跳过
-                fig = cerebro.plot(style='candlestick', barup='red', bardown='green', volume=False)[0][0]
-                fig.set_size_inches(16, 9)
-                fig.savefig(f"{self.output_dir}/99_回测结果.png", dpi=100)
-                plt.close(fig)
-                self._log(f"  ✓ 生成图表: 99_回测结果.png")
+                # 切换到非交互式后端，避免弹出窗口
+                import matplotlib
+                matplotlib.use('Agg')
+                import matplotlib.pyplot as plt
+                
+                # backtrader plot with iplot=False to prevent popup
+                figs = cerebro.plot(style='candlestick', barup='red', bardown='green', volume=False, iplot=False)
+                if figs and figs[0] and figs[0][0]:
+                    fig = figs[0][0]
+                    fig.set_size_inches(16, 9)
+                    fig.savefig(f"{self.output_dir}/99_回测结果.png", dpi=100)
+                    plt.close(fig)
+                    self._log(f"  ✓ 生成图表: 99_回测结果.png")
+                else:
+                    self._log(f"  ⚠ 回测图表生成失败: 无有效图形对象")
             except Exception as e:
                 self._log(f"  ⚠ 无法生成回测图表: {e}")
 
@@ -2931,6 +3039,14 @@ class StockAnalyzer:
             print(f"  ⚠ 生成图表22失败: {e}")
 
         # ------------------------------------------------------
+        # 图16-18: 财务概览相关图表 (独立调用，不依赖行业对标数据)
+        # ------------------------------------------------------
+        try:
+            self._plot_financial_overview_charts()
+        except Exception as e:
+            print(f"  ⚠ 生成财务概览图表失败: {e}")
+
+        # ------------------------------------------------------
         # 图13: DDM股利折现估值模型
         # ------------------------------------------------------
         try:
@@ -3257,29 +3373,44 @@ class StockAnalyzer:
                 info = ak.stock_individual_info_em(symbol=code)
                 name = info[info['item'] == '股票简称']['value'].values[0]
 
-                # 2. 获取估值
-                val_df = ak.stock_a_lg_indicator(symbol=code)
-                pe = self._safe_float(val_df['pe_ttm'].iloc[-1])
-                pb = self._safe_float(val_df['pb'].iloc[-1])
+                # 2. 获取估值 - 使用 stock_zh_a_spot_em 获取实时PE/PB
+                spot_df = ak.stock_zh_a_spot_em()
+                stock_row = spot_df[spot_df['代码'] == code]
+                if stock_row.empty:
+                    raise ValueError(f"股票 {code} 不在A股实时行情中")
+                pe = self._safe_float(stock_row['市盈率-动态'].iloc[0])
+                pb = self._safe_float(stock_row['市净率'].iloc[0])
 
-                # 3. 获取财务摘要
+                # 3. 获取财务摘要 - 新格式处理
                 fin_df = ak.stock_financial_abstract(symbol=code)
-                fin_df = fin_df.set_index('指标').T.reset_index()
-                fin_df['截止日期'] = pd.to_datetime(fin_df['截止日期'], format='%Y%m%d')
-                annual_df = fin_df[fin_df['截止日期'].dt.month == 12]
-
-                # 4. 计算指标
-                net_margin = self._safe_float(annual_df['净利率(%)'].iloc[-1])
-                roe = self._safe_float(annual_df['净资产收益率(%)'].iloc[-1])
-                
-                # 计算3年营收CAGR
-                rev_col = next((c for c in annual_df.columns if '营业总收入' in c), None)
-                if rev_col and len(annual_df) >= 4:
-                    rev_start = self._safe_float(annual_df[rev_col].iloc[-4])
-                    rev_end = self._safe_float(annual_df[rev_col].iloc[-1])
-                    cagr = ((rev_end / rev_start) ** (1/3) - 1) * 100 if rev_start > 0 else 0
+                # 新格式：列名是日期，行是指标
+                # 找到年报日期列（以12月结尾的）
+                date_cols = [c for c in fin_df.columns if c not in ['选项', '指标'] and str(c).endswith('1231')]
+                if len(date_cols) < 1:
+                    # 没有年报数据，使用默认值
+                    net_margin, roe, cagr = 0, 0, 0
                 else:
+                    # 获取最新年报的净利率和ROE
+                    latest_year_col = sorted(date_cols)[-1]
+                    
+                    # 查找净利率行
+                    net_margin_row = fin_df[fin_df['指标'].str.contains('净利率', na=False)]
+                    net_margin = self._safe_float(net_margin_row[latest_year_col].iloc[0]) if not net_margin_row.empty else 0
+                    
+                    # 查找ROE行  
+                    roe_row = fin_df[fin_df['指标'].str.contains('净资产收益率', na=False)]
+                    roe = self._safe_float(roe_row[latest_year_col].iloc[0]) if not roe_row.empty else 0
+                    
+                    # 计算3年营收CAGR
                     cagr = 0
+                    if len(date_cols) >= 4:
+                        sorted_years = sorted(date_cols)
+                        rev_row = fin_df[fin_df['指标'].str.contains('营业总收入|营业收入', na=False, regex=True)]
+                        if not rev_row.empty:
+                            rev_start = self._safe_float(rev_row[sorted_years[-4]].iloc[0])
+                            rev_end = self._safe_float(rev_row[sorted_years[-1]].iloc[0])
+                            if rev_start > 0:
+                                cagr = ((rev_end / rev_start) ** (1/3) - 1) * 100
 
                 return {
                     'name': name,
@@ -3348,25 +3479,22 @@ class StockAnalyzer:
         plt.close()
         print('  ✓ 生成图表: 22_行业对标分析.png')
 
-        # ------------------------------------------------------
+    def _plot_financial_overview_charts(self):
+        """生成财务概览相关图表 (图16: 销售费用, 图17: 供应商/客户集中度, 图18: 财务状况一览)"""
+        
         # 图16: 销售费用走势
-        # ------------------------------------------------------
         try:
             self._plot_sales_expense_trend()
         except Exception as e:
             print(f"  ⚠ 生成图表16失败: {e}")
 
-        # ------------------------------------------------------
         # 图17: 供应商/客户集中度
-        # ------------------------------------------------------
         try:
             self._plot_supplier_customer_concentration()
         except Exception as e:
             print(f"  ⚠ 生成图表17失败: {e}")
 
-        # ------------------------------------------------------
         # 图18: 财务状况一览（资产/负债拆解）
-        # ------------------------------------------------------
         try:
             bs_df = self.balance_sheet
             if bs_df is not None and len(bs_df) > 0:
@@ -3447,7 +3575,7 @@ class StockAnalyzer:
             else:
                 print("  ⚠ 财务状况一览: 无资产负债表数据")
         except Exception as e:
-            print(f"  ⚠ 生成图表14失败: {e}")
+            print(f"  ⚠ 生成图表18失败: {e}")
 
     def _plot_dcf_valuation(self, data):
         """DCF现金流折现估值模型"""
@@ -3569,10 +3697,23 @@ class StockAnalyzer:
         ax3 = axes[1, 0]
         labels = ['未来现金流现值', '终值现值']
         values = [cumulative_pv / 1e8, terminal_pv / 1e8]
-        colors = ['steelblue', 'coral']
-        wedges, texts, autotexts = ax3.pie(values, labels=labels, colors=colors, autopct='%1.1f%%',
-                                            startangle=90, explode=(0.02, 0.02))
-        ax3.set_title(f'DCF估值构成\n企业价值: {enterprise_value/1e8:.1f}亿')
+        # 处理负值情况：饼图不能有负值
+        if all(v > 0 for v in values):
+            colors = ['steelblue', 'coral']
+            wedges, texts, autotexts = ax3.pie(values, labels=labels, colors=colors, autopct='%1.1f%%',
+                                                startangle=90, explode=(0.02, 0.02))
+            ax3.set_title(f'DCF估值构成\n企业价值: {enterprise_value/1e8:.1f}亿')
+        else:
+            # 负现金流时显示柱状图替代饼图
+            colors = ['steelblue' if v >= 0 else 'red' for v in values]
+            bars = ax3.bar(labels, values, color=colors, alpha=0.7)
+            ax3.axhline(y=0, color='black', linewidth=0.5)
+            for bar, v in zip(bars, values):
+                ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height(),
+                        f'{v:.1f}亿', ha='center', va='bottom' if v >= 0 else 'top', fontsize=9)
+            ax3.set_ylabel('金额 (亿元)')
+            ax3.set_title(f'DCF估值构成\n⚠️ 存在负现金流，企业价值: {enterprise_value/1e8:.1f}亿')
+            ax3.grid(True, alpha=0.3, axis='y')
         
         # 子图4: 估值结果
         ax4 = axes[1, 1]

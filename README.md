@@ -168,6 +168,7 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 | 回测功能不可用 | 执行 `pip install backtrader` |
 | 中文乱码 | 修改 `config.py` 中 `FONT_FAMILY` |
 | 数据缺失 | 检查股票代码是否正确、是否已退市 |
+| 行业对比无数据 | 检查公司行业分类是否正确 |
 
 ---
 
@@ -175,7 +176,7 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 
 | 库 | 用途 |
 |----|------|
-| akshare | A股/期货数据源 |
+| akshare | A股/期货数据源 + 行业对比 |
 | pandas / numpy | 数据处理 |
 | matplotlib / seaborn | 可视化 |
 | backtrader | 量化回测框架 |
