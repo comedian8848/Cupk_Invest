@@ -25,11 +25,15 @@ ENV/
 # 分析报告输出目录（每次运行生成，不需要版本控制）
 stock_analysis/分析报告_*/
 期货分析_*/
+期货报告_*.png
+stock_analysis/期货报告_*.png
 
 # 数据缓存文件
 *.pkl
 *.csv
-*.json
+# 保留 requirements.txt 但忽略其他普通 txt
+分析报告.txt
+stock_analysis/分析报告.txt
 *.db
 
 # 日志文件

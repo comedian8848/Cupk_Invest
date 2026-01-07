@@ -46,6 +46,55 @@ plt.rcParams['figure.dpi'] = 150
 
 import analysis
 import industry_compare  # 行业对比模块 (基于 akshare)
+import platform
+from matplotlib import font_manager
+
+# ==================== 期货配置 ====================
+FUTURES_MAPPING = {
+    # 贵金属
+    '黄金': {'symbol': 'AU', 'exchange': 'SHFE', 'sina_name': '黄金'},
+    '白银': {'symbol': 'AG', 'exchange': 'SHFE', 'sina_name': '白银'},
+    #有色金属
+    '铜': {'symbol': 'CU', 'exchange': 'SHFE', 'sina_name': '铜'},
+    '铝': {'symbol': 'AL', 'exchange': 'SHFE', 'sina_name': '铝'},
+    '锌': {'symbol': 'ZN', 'exchange': 'SHFE', 'sina_name': '锌'},
+    '铅': {'symbol': 'PB', 'exchange': 'SHFE', 'sina_name': '铅'},
+    '镍': {'symbol': 'NI', 'exchange': 'SHFE', 'sina_name': '镍'},
+    '锡': {'symbol': 'SN', 'exchange': 'SHFE', 'sina_name': '锡'},
+    # 黑色系
+    '螺纹钢': {'symbol': 'RB', 'exchange': 'SHFE', 'sina_name': '螺纹钢'},
+    '热卷': {'symbol': 'HC', 'exchange': 'SHFE', 'sina_name': '热轧卷板'},
+    '铁矿石': {'symbol': 'I', 'exchange': 'DCE', 'sina_name': '铁矿石'},
+    '焦炭': {'symbol': 'J', 'exchange': 'DCE', 'sina_name': '焦炭'},
+    '焦煤': {'symbol': 'JM', 'exchange': 'DCE', 'sina_name': '焦煤'},
+    # 能源化工
+    '原油': {'symbol': 'SC', 'exchange': 'INE', 'sina_name': '上海原油'},
+    '燃油': {'symbol': 'FU', 'exchange': 'SHFE', 'sina_name': '燃料油'},
+    '沥青': {'symbol': 'BU', 'exchange': 'SHFE', 'sina_name': '沥青'},
+    '橡胶': {'symbol': 'RU', 'exchange': 'SHFE', 'sina_name': '天然橡胶'},
+    '塑料': {'symbol': 'L', 'exchange': 'DCE', 'sina_name': '塑料'},
+    'PVC': {'symbol': 'V', 'exchange': 'DCE', 'sina_name': 'PVC'},
+    'PTA': {'symbol': 'TA', 'exchange': 'CZCE', 'sina_name': 'PTA'},
+    '甲醇': {'symbol': 'MA', 'exchange': 'CZCE', 'sina_name': '甲醇'},
+    '玻璃': {'symbol': 'FG', 'exchange': 'CZCE', 'sina_name': '玻璃'},
+    '纯碱': {'symbol': 'SA', 'exchange': 'CZCE', 'sina_name': '纯碱'},
+    # 农产品
+    '豆粕': {'symbol': 'M', 'exchange': 'DCE', 'sina_name': '豆粕'},
+    '豆油': {'symbol': 'Y', 'exchange': 'DCE', 'sina_name': '豆油'},
+    '棕榈油': {'symbol': 'P', 'exchange': 'DCE', 'sina_name': '棕榈油'},
+    '玉米': {'symbol': 'C', 'exchange': 'DCE', 'sina_name': '玉米'},
+    '棉花': {'symbol': 'CF', 'exchange': 'CZCE', 'sina_name': '棉花'},
+    '白糖': {'symbol': 'SR', 'exchange': 'CZCE', 'sina_name': '白糖'},
+    '鸡蛋': {'symbol': 'JD', 'exchange': 'DCE', 'sina_name': '鸡蛋'},
+    '生猪': {'symbol': 'LH', 'exchange': 'DCE', 'sina_name': '生猪'},
+    '苹果': {'symbol': 'AP', 'exchange': 'CZCE', 'sina_name': '苹果'},
+    '红枣': {'symbol': 'CJ', 'exchange': 'CZCE', 'sina_name': '红枣'},
+}
+
+INVENTORY_MAPPING = {
+    '铜': '沪铜', '铝': '沪铝', '锌': '沪锌', '铅': '沪铅', '镍': '沪镍',
+    '锡': '沪锡', '黄金': '沪金', '白银': '沪银', '螺纹钢': '螺纹钢', '豆粕': '豆粕',
+}
 
 
 # ==================== 量化回测模块 ====================
@@ -5747,71 +5796,303 @@ class FuturesAnalyzer:
         print(f"  ✓ 分析报告已生成: {self.output_dir}/report.md")
 
 
+# ==================== 期货分析模块 ====================
+class FuturesAnalyzer:
+    def __init__(self, name_or_symbol):
+        """
+        初始化期货分析器
+        :param name_or_symbol: 中文名称(如'黄金') 或 代码(如'AU')
+        """
+        self.name = self._resolve_name(name_or_symbol)
+        self.config = FUTURES_MAPPING.get(self.name, {})
+        self.symbol = self.config.get('symbol', name_or_symbol)
+        
+        # 数据存储
+        self.history_data = None    # 行情数据
+        self.spot_price = None      # 现货/基差数据
+        self.inventory = None       # 库存数据
+        self.holdings = None        # 持仓数据
+        
+        # 分析结果
+        self.signals = []
+        self.score = 50 # 初始中性评分
+        self.final_report = {'final_score': 0, 'suggestion': 'N/A', 'signals': []}
+        
+        print(f"🔧 初始化期货分析器: {self.name} ({self.symbol})")
+
+    def _resolve_name(self, query):
+        """解析输入名称到标准中文名"""
+        if query in FUTURES_MAPPING: return query
+        for k, v in FUTURES_MAPPING.items():
+            if v['symbol'] == query.upper(): return k
+        for k in FUTURES_MAPPING.keys():
+            if query in k: return k
+        return query
+
+    def fetch_all_data(self):
+        """获取所有相关数据"""
+        print("📥 开始获取数据...")
+        # 1. 先并行获取 行情 和 库存
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            t1 = executor.submit(self._fetch_history)
+            t2 = executor.submit(self._fetch_inventory)
+            t1.result()
+            t2.result()
+        # 2. 获取现货/基差数据
+        self._fetch_spot_price()
+        # 3. 获取持仓数据
+        if self.spot_price and 'dominant_contract' in self.spot_price:
+             self._fetch_holdings(self.spot_price['dominant_contract'])
+        print("✅ 数据获取完成")
+
+    def _fetch_history(self):
+        try:
+            main_code = f"{self.symbol}0"
+            df = ak.futures_main_sina(symbol=main_code)
+            df['日期'] = pd.to_datetime(df['日期'])
+            for col in ['开盘价', '最高价', '最低价', '收盘价', '成交量', '持仓量']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            self.history_data = df
+            print(f"  - 行情数据: {len(df)} 条")
+        except Exception as e:
+            print(f"  ❌ 获取行情失败: {e}")
+
+    def _fetch_inventory(self):
+        try:
+            em_name = INVENTORY_MAPPING.get(self.name)
+            if em_name:
+                df = ak.futures_inventory_em(symbol=em_name)
+                df['日期'] = pd.to_datetime(df['日期'])
+                df['库存'] = pd.to_numeric(df['库存'], errors='coerce')
+                self.inventory = df
+                print(f"  - 库存数据: {len(df)} 条 (来源: 东财-{em_name})")
+        except Exception as e:
+            print(f"  ❌ 获取库存失败: {e}")
+
+    def _fetch_spot_price(self):
+        try:
+            for i in range(5):
+                 d_check = (datetime.now() - pd.Timedelta(days=i)).strftime('%Y%m%d')
+                 try:
+                     df = ak.futures_spot_price(date=d_check)
+                     if df is not None and not df.empty:
+                         row = df[df['symbol'] == self.symbol]
+                         if not row.empty:
+                             self.spot_price = row.iloc[0].to_dict()
+                             print(f"  - 现货基差: 现货 {self.spot_price.get('spot_price')}, 基差 {self.spot_price.get('dom_basis')} (日期: {d_check})")
+                             return
+                 except: pass
+        except Exception as e:
+            print(f"  ⚠️ 基差数据获取受限: {e}")
+            
+    def _fetch_holdings(self, contract):
+        try:
+            self.holdings = {}
+            for i in range(5):
+                 d_check = (datetime.now() - pd.Timedelta(days=i)).strftime('%Y%m%d')
+                 try:
+                     df_long = ak.futures_hold_pos_sina(symbol='持买单量', contract=contract, date=d_check)
+                     df_short = ak.futures_hold_pos_sina(symbol='持卖单量', contract=contract, date=d_check)
+                     if (df_long is not None and not df_long.empty) and (df_short is not None and not df_short.empty):
+                         self.holdings = {'long': df_long, 'short': df_short, 'date': d_check, 'contract': contract}
+                         print(f"  - 持仓数据: 获取成功 (合约: {contract}, 日期: {d_check})")
+                         return
+                 except: pass
+        except Exception as e:
+             print(f"  ⚠️ 持仓数据获取受限: {e}")
+
+    def analyze(self):
+        if self.history_data is None or self.history_data.empty:
+            print("❌ 无法分析: 无行情数据")
+            return
+        print("\n🧠 开始深度分析...")
+        self._analyze_trend()
+        self._analyze_volatility()
+        self._analyze_fundamentals()
+        self._analyze_basis()
+        self._analyze_holdings()
+        self._generate_conclusion()
+
+    def _analyze_trend(self):
+        df = self.history_data.copy()
+        close = df['收盘价']
+        df['MA5'] = close.rolling(5).mean()
+        df['MA20'] = close.rolling(20).mean()
+        df['MA60'] = close.rolling(60).mean()
+        
+        current = df.iloc[-1]
+        
+        if current['收盘价'] > current['MA5'] > current['MA20'] > current['MA60']:
+            self.signals.append({'type': 'bull', 'msg': '均线多头排列', 'score': 15})
+        elif current['收盘价'] < current['MA5'] < current['MA20'] < current['MA60']:
+            self.signals.append({'type': 'bear', 'msg': '均线空头排列', 'score': -15})
+            
+        exp12 = close.ewm(span=12, adjust=False).mean()
+        exp26 = close.ewm(span=26, adjust=False).mean()
+        macd = exp12 - exp26
+        signal = macd.ewm(span=9, adjust=False).mean()
+        hist = macd - signal
+        
+        curr_hist = hist.iloc[-1]; prev_hist = hist.iloc[-2]
+        if curr_hist > 0 and prev_hist < 0: self.signals.append({'type': 'bull', 'msg': 'MACD金叉', 'score': 10})
+        elif curr_hist < 0 and prev_hist > 0: self.signals.append({'type': 'bear', 'msg': 'MACD死叉', 'score': -10})
+        
+        self.history_data = df
+
+    def _analyze_volatility(self):
+        df = self.history_data
+        delta = df['收盘价'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        curr_rsi = rsi.iloc[-1]
+        
+        if curr_rsi > 80: self.signals.append({'type': 'risk', 'msg': f'RSI超买({curr_rsi:.1f})', 'score': -5})
+        elif curr_rsi < 20: self.signals.append({'type': 'opp', 'msg': f'RSI超卖({curr_rsi:.1f})', 'score': 5})
+        
+        df['log_ret'] = np.log(df['收盘价'] / df['收盘价'].shift(1))
+        volatility = df['log_ret'].rolling(20).std() * np.sqrt(242)
+        vol_rank = volatility.rolling(242).rank(pct=True).iloc[-1]
+        if vol_rank > 0.9: self.signals.append({'type': 'info', 'msg': f'波动率极高({vol_rank:.0%})', 'score': 0})
+
+    def _analyze_fundamentals(self):
+        if self.inventory is not None and not self.inventory.empty:
+            curr = self.inventory.iloc[-1]['库存']
+            prev = self.inventory.iloc[-2]['库存'] if len(self.inventory) > 1 else curr
+            chg = (curr - prev) / prev
+            inv_series = self.inventory['库存'].tail(52)
+            rank = (curr - inv_series.min()) / (inv_series.max() - inv_series.min() + 1e-6)
+            
+            if rank < 0.2 and chg < 0: self.signals.append({'type': 'bull', 'msg': f'低库存+去库({chg:.1%})', 'score': 10})
+            elif rank > 0.8 and chg > 0: self.signals.append({'type': 'bear', 'msg': f'高库存+累库({chg:.1%})', 'score': -10})
+
+    def _analyze_basis(self):
+        if self.spot_price:
+            basis = self.spot_price.get('dom_basis', 0)
+            spot = self.spot_price.get('spot_price', 1)
+            rate = basis / spot if spot else 0
+            if rate > 0.02: self.signals.append({'type': 'bull', 'msg': f'深贴水({rate:.1%})', 'score': 10})
+            elif rate < -0.02: self.signals.append({'type': 'bear', 'msg': f'深升水({rate:.1%})', 'score': -10})
+
+    def _analyze_holdings(self):
+        if self.holdings and 'long' in self.holdings:
+            try:
+                df_long = self.holdings['long']
+                df_short = self.holdings['short']
+                v_long = df_long.iloc[:, 2].apply(lambda x: float(x) if str(x).replace('.','').isdigit() else 0).sum()    
+                v_short = df_short.iloc[:, 2].apply(lambda x: float(x) if str(x).replace('.','').isdigit() else 0).sum()  
+                if v_long + v_short > 0:
+                    ratio = (v_long - v_short) / (v_long + v_short)
+                    if ratio > 0.05: self.signals.append({'type': 'bull', 'msg': f'主力净多({ratio:.1%})', 'score': 5})
+                    elif ratio < -0.05: self.signals.append({'type': 'bear', 'msg': f'主力净空({ratio:.1%})', 'score': -5})
+            except: pass
+
+    def _generate_conclusion(self):
+        final_score = self.score + sum(s['score'] for s in self.signals)
+        final_score = max(0, min(100, final_score))
+        sug = "观望"
+        if final_score >= 80: sug = "强力做多"
+        elif final_score >= 60: sug = "做多"
+        elif final_score <= 20: sug = "强力做空"
+        elif final_score <= 40: sug = "做空"
+        
+        self.final_report = {'final_score': final_score, 'suggestion': sug, 'signals': self.signals}
+        print(f"\n📊 综合评分: {final_score:.0f} [{sug}]")
+        for s in self.signals: print(f"  - {s['msg']} ({s['score']:+})")
+
+    def plot_analysis(self):
+        if self.history_data is None: return
+        df = self.history_data.tail(242)
+        plt.figure(figsize=(16, 12)); plt.clf()
+        
+        ax1 = plt.subplot(211)
+        ax1.plot(df['日期'], df['收盘价'], label='Price')
+        ax1.plot(df['日期'], df['MA20'], label='MA20')
+        ax1.plot(df['日期'], df['MA60'], label='MA60')
+        ax1.set_title(f"{self.name} ({self.symbol}) 期货分析")
+        ax1.legend()
+        
+        ax2 = plt.subplot(212, sharex=ax1)
+        if self.inventory is not None:
+            inv = self.inventory.set_index('日期').reindex(df['日期'], method='ffill')
+            ax2.fill_between(inv.index, inv['库存'], color='green', alpha=0.3, label='库存')
+            ax2.legend()
+        
+        file_path = f"期货报告_{self.symbol}_{datetime.now().strftime('%Y%m%d')}.png"
+        plt.savefig(file_path, bbox_inches='tight')
+        print(f"📈 图表已保存: {file_path}")
+
+
 def main():
     """主函数"""
+    print("="*50)
+    print("      Analysis Pro 投资分析工具 v3.0 (Stock/Futures)")
+    print("      (支持: A股深度分析 / 期货全维分析)")
+    print("="*50)
+
     if len(sys.argv) < 2:
-        print("="*50)
-        print("  投资分析工具 v2.1 (支持股票/期货)")
-        print("="*50)
-        print("\\n用法: python stock_analysis_v2.py <代码>")
-        print("示例: ")
-        print("  股票: 002683, 600519")
-        print("  期货: AU0(黄金), AG0(白银), CU0(铜), TA0(PTA)")
-        print("  也可以直接输入中文: 黄金, 白银, 铜, PTA")
+        print("\\n[使用说明]")
+        print("用法: python stock_analysis_v2.py <代码>")
+        print("示例:")
+        print("  A股: 600519 (茅台), 000858 (五粮液)")
+        print("  期货: 螺纹钢, 黄金, 沪铜, RB, AU, CU")
         
-        code = input("\\n请输入代码: ").strip()
+        code = input("\\n请输入代码或名称: ").strip()
         if not code:
             code = "002683"
     else:
         code = sys.argv[1]
     
-    # 中文映射
-    name_map = {
-        '黄金': 'AU0', '白银': 'AG0', '铜': 'CU0', '铝': 'AL0',
-        '锌': 'ZN0', '铅': 'PB0', '镍': 'NI0', '锡': 'SN0',
-        'PTA': 'TA0', '甲醇': 'MA0', '螺纹': 'RB0', '铁矿': 'I0',
-        '鸡蛋': 'JD0', '玉米': 'C0', '豆粕': 'M0', '豆油': 'Y0',
-        '棕榈': 'P0', '棉花': 'CF0', '白糖': 'SR0', '橡胶': 'RU0',
-        '原油': 'SC0'
-    }
+    start_time = time.time()
     
-    # 处理输入
-    if code in name_map:
-        code = name_map[code]
+    # 1. 判断是否为期货 (检查是否在映射表中 或 包含字母)
+    is_futures = False
     
-    # 判断是股票还是期货
-    # 股票通常是纯数字，期货通常包含字母
-    is_stock = code.isdigit()
+    # 检查中文名
+    if code in FUTURES_MAPPING: is_futures = True
+    # 检查代码 (字母开头通常是期货，如 RB, AU; 数字开头是股票)
+    elif code[0].isalpha() or code.upper() in [v['symbol'] for v in FUTURES_MAPPING.values()]: is_futures = True
     
-    total_start = time.time()
-    
-    if is_stock:
-        print(f"\\n启动股票分析: {code}")
-        analyzer = StockAnalyzer(code)
-        analyzer.fetch_data()
-        
-        # 分析阶段
-        t1 = time.time()
-        analyzer.analyze_growth_momentum()
-        analyzer.analyze_company()
-        analyzer.analyze_financial_report()
-        analyzer.run_backtest()
-        t2 = time.time()
-        print(f"\\n📊 分析耗时: {t2-t1:.1f}s")
-        
-        analyzer.generate_summary()
-        
-        total_time = time.time() - total_start
-        print(f"\\n⏱️ 总耗时: {total_time:.1f}s")
+    if is_futures:
+        # ----- 期货模式 -----
+        print(f"\\n🚀 启动期货分析模式: {code}")
+        try:
+            analyzer = FuturesAnalyzer(code)
+            analyzer.fetch_all_data()
+            analyzer.analyze()
+            analyzer.plot_analysis()
+        except Exception as e:
+            print(f"\\n❌ 期货分析出错: {e}")
+            import traceback; traceback.print_exc()
+            
     else:
-        print(f"\\n启动期货分析: {code}")
-        analyzer = FuturesAnalyzer(code)
-        analyzer.fetch_data()
-        analyzer.analyze_trend()
-        analyzer.generate_report()
-        
-        total_time = time.time() - total_start
-        print(f"\\n⏱️ 总耗时: {total_time:.1f}s")
+        # ----- A股模式 -----
+        print(f"\\n🚀 启动A股分析模式: {code}")
+        try:
+            analyzer = StockAnalyzer(code)
+            analyzer.fetch_data()
+            
+            # 分析阶段
+            # 1. 增量分析
+            analyzer.analyze_growth_momentum()
+            
+            # 2. 公司深度分析
+            analyzer.analyze_company()
+            
+            # 3. 财报解读
+            analyzer.analyze_financial_report()
+            
+            # 4. 回测 (可选，耗时较长)
+            analyzer.run_backtest()
+            
+            analyzer.generate_summary()
+        except Exception as e:
+            print(f"\\n❌ A股分析出错: {e}")
+            import traceback; traceback.print_exc()
+    
+    total_time = time.time() - start_time
+    print(f"\\n⏱️ 总耗时: {total_time:.1f}s")
 
 
 if __name__ == "__main__":
