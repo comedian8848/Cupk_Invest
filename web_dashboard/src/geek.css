@@ -761,3 +761,103 @@ body {
   .xl\:col-span-3 { grid-column: span 3; }
 }
 
+/* ============================================
+   文本颜色工具类 - 金融色彩
+   ============================================ */
+
+.text-success { color: var(--color-success) !important; }
+.text-danger { color: var(--color-down) !important; }
+.text-warning { color: var(--color-warning) !important; }
+.text-up { color: var(--color-up) !important; }
+.text-down { color: var(--color-down) !important; }
+
+/* 涨跌幅标签 */
+.change-up {
+  color: var(--color-up);
+  background: rgba(38, 166, 154, 0.1);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.change-down {
+  color: var(--color-down);
+  background: rgba(239, 83, 80, 0.1);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 估值状态标签 */
+.valuation-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.valuation-badge.undervalued {
+  background: rgba(0, 200, 83, 0.15);
+  color: var(--color-success);
+}
+
+.valuation-badge.overvalued {
+  background: rgba(239, 83, 80, 0.15);
+  color: var(--color-down);
+}
+
+.valuation-badge.fair {
+  background: rgba(41, 98, 255, 0.15);
+  color: var(--accent-primary);
+}
+
+/* 评分环形进度条 */
+.score-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 操作建议卡片 */
+.advice-card {
+  border-left: 4px solid var(--accent-primary);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.advice-card.bullish {
+  border-left-color: var(--color-success);
+}
+
+.advice-card.bearish {
+  border-left-color: var(--color-down);
+}
+
+.advice-card.neutral {
+  border-left-color: var(--color-warning);
+}
+
+/* 数据对比条 */
+.comparison-bar {
+  display: flex;
+  height: 24px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.comparison-bar .bar-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  transition: width 0.3s ease;
+}
