@@ -416,16 +416,22 @@ function ReportDetail({ report, onBack }) {
           )}
           
           {/* 概览Dashboard图片 */}
-          {categories.overview.length > 0 && (
+          {(categories.overview.length > 0 || report.type === 'futures') && (
             <div className="mt-6">
               <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2 px-2">
                 <ImageIcon size={18} style={{color: 'var(--accent-primary)'}} />
-                核心Dashboard
+                {report.type === 'futures' ? '期货分析报告' : '核心Dashboard'}
               </h3>
               <div className="chart-grid">
-                {categories.overview.map((img, idx) => (
-                  <ImageCard key={idx} src={img} />
-                ))}
+                {report.type === 'futures' ? (
+                  report.images.map((img, idx) => (
+                    <ImageCard key={idx} src={img} fullWidth />
+                  ))
+                ) : (
+                  categories.overview.map((img, idx) => (
+                    <ImageCard key={idx} src={img} />
+                  ))
+                )}
               </div>
             </div>
           )}
