@@ -19,7 +19,8 @@ def main():
     
     # 2. Start Frontend
     print("⚛️  Starting React Frontend (Port 5173)...")
-    frontend = subprocess.Popen(["npm", "run", "dev"], cwd=frontend_dir)
+    npm_cmd = "npm.cmd" if os.name == 'nt' else "npm"
+    frontend = subprocess.Popen([npm_cmd, "run", "dev"], cwd=frontend_dir)
     
     print("\n✅ System Activated")
     print("---------------------------------------")
