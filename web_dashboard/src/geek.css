@@ -193,28 +193,46 @@ body {
   gap: var(--spacing-md);
 }
 
+/* 基础 grid 列数 */
 .grid-cols-1 { grid-template-columns: 1fr; }
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
 
+/* sm: 640px+ */
 @media (min-width: 640px) {
   .sm\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .sm\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .sm\:grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
 }
 
+/* md: 768px+ */
 @media (min-width: 768px) {
   .md\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
   .md\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .md\:grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .md\:grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* lg: 1024px+ */
 @media (min-width: 1024px) {
+  .lg\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
   .lg\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
   .lg\:grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .lg\:grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* xl: 1280px+ */
 @media (min-width: 1280px) {
   .xl\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
   .xl\:grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
   .xl\:grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* Gap 间距 */
+.gap-2 { gap: var(--spacing-sm); }
+.gap-3 { gap: 12px; }
 .gap-4 { gap: var(--spacing-md); }
 .gap-6 { gap: var(--spacing-lg); }
 
