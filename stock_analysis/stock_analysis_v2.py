@@ -11,12 +11,18 @@ A股公司分析与财报解读工具 v2.0
 import sys
 import os
 
-# 设置编码和路径
-if sys.platform.startswith('win'):
-    # Windows 编码处理
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+# 设置编码和路径 - Windows兼容处理
+try:
+    if sys.platform.startswith('win'):
+        # Windows 编码处理 - 避免UnicodeEncodeError
+        if hasattr(sys.stdout, 'buffer'):
+            import io
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        # 设置编码环境变量
+        os.environ['PYTHONIOENCODING'] = 'utf-8'
+except Exception as e:
+    print(f"Warning: Encoding setup failed: {e}")
 
 # 确保脚本所在目录在 Python 路径中
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,13 +31,20 @@ if SCRIPT_DIR not in sys.path:
 
 # 导入依赖
 try:
+    print("[DEBUG] Importing akshare...")
     import akshare as ak
+    print("[DEBUG] Importing backtrader...")
     import backtrader as bt
+    print("[DEBUG] Importing pandas, numpy...")
     import pandas as pd
     import numpy as np
+    print("[DEBUG] Importing matplotlib...")
+    import matplotlib
+    matplotlib.use('Agg')  # 无头模式，避免GUI问题
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
     from matplotlib.patches import Wedge
+    print("[DEBUG] Importing seaborn...")
     import seaborn as sns
     import json
     from datetime import datetime
@@ -40,19 +53,23 @@ try:
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from functools import lru_cache
 
+    print("[DEBUG] Importing local modules...")
     # 导入新的数据获取模块
     import data_fetcher
 
     # 从配置文件导入常量
     from config import MAX_WORKERS, FONT_FAMILY, COLORS, DCF_CONFIG, DDM_CONFIG, EVA_CONFIG
+    print("[DEBUG] All imports successful!")
 
     warnings.filterwarnings('ignore')
 except ImportError as e:
-    print(f"ERROR: 缺少必要的依赖库: {e}", file=sys.stderr)
-    print(f"请运行: pip install -r requirements.txt", file=sys.stderr)
+    print(f"ERROR: Missing dependency: {e}", file=sys.stderr)
+    print(f"Please run: pip install -r requirements.txt", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 except Exception as e:
-    print(f"ERROR: 导入失败: {e}", file=sys.stderr)
+    print(f"ERROR: Import failed: {e}", file=sys.stderr)
     import traceback
     traceback.print_exc()
     sys.exit(1)

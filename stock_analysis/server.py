@@ -2,6 +2,8 @@ from flask import Flask, jsonify, send_file, request
 from flask_cors import CORS
 import os
 import glob
+import sys
+import platform
 from operator import itemgetter
 import datetime
 import json
@@ -13,6 +15,11 @@ CORS(app)  # Enable CORS for all routes
 
 WORKING_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# 检测Python解释器路径
+def get_python_executable():
+    """获取当前Python解释器的完整路径"""
+    return sys.executable
+
 # Track running analysis tasks
 analysis_status = {}
 
@@ -22,26 +29,34 @@ def run_analysis_task(code, task_id):
         analysis_status[task_id] = {'status': 'running', 'progress': 0, 'message': 'Starting analysis...'}
         
         script_path = os.path.join(WORKING_DIR, 'stock_analysis_v2.py')
+        python_exe = get_python_executable()
         
-        # Try python3 first, fallback to python
-        try:
-            result = subprocess.run(
-                ['python3', script_path, code],
-                cwd=WORKING_DIR,
-                capture_output=True,
-                text=True,
-                timeout=3600,  # 1 hour timeout
-                env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}
-            )
-        except FileNotFoundError:
-            result = subprocess.run(
-                ['python', script_path, code],
-                cwd=WORKING_DIR,
-                capture_output=True,
-                text=True,
-                timeout=3600,
-                env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}
-            )
+        print(f"[INFO] Task {task_id}: Using Python: {python_exe}")
+        print(f"[INFO] Task {task_id}: Script: {script_path}")
+        print(f"[INFO] Task {task_id}: Code: {code}")
+        
+        # 设置环境变量确保UTF-8编码
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUNBUFFERED'] = '1'
+        
+        # 使用当前Python解释器运行脚本
+        result = subprocess.run(
+            [python_exe, script_path, code],
+            cwd=WORKING_DIR,
+            capture_output=True,
+            text=True,
+            timeout=3600,  # 1 hour timeout
+            env=env,
+            encoding='utf-8',
+            errors='replace'  # 替换无法解码的字符
+        )
+        
+        print(f"[INFO] Task {task_id}: Return code: {result.returncode}")
+        if result.stdout:
+            print(f"[STDOUT] {result.stdout[:500]}")
+        if result.stderr:
+            print(f"[STDERR] {result.stderr[:500]}")
         
         if result.returncode == 0:
             analysis_status[task_id] = {
@@ -51,14 +66,21 @@ def run_analysis_task(code, task_id):
                 'code': code
             }
         else:
-            # Show full error message (first 1000 chars)
-            error_msg = result.stderr if result.stderr else result.stdout
+            # 合并stdout和stderr以获取完整错误信息
+            error_msg = ''
+            if result.stderr:
+                error_msg = result.stderr
+            if result.stdout and not error_msg:
+                error_msg = result.stdout
+            if not error_msg:
+                error_msg = f'Process exited with code {result.returncode} (no output captured)'
+            
             analysis_status[task_id] = {
                 'status': 'error',
                 'progress': 0,
-                'message': f'Analysis failed: {error_msg[:1000]}'
+                'message': f'Analysis failed: {error_msg[:2000]}'
             }
-            print(f"[ERROR] Task {task_id}: {error_msg}")  # Log to server console
+            print(f"[ERROR] Task {task_id}: {error_msg[:1000]}")
     except subprocess.TimeoutExpired:
         analysis_status[task_id] = {
             'status': 'error',
@@ -67,11 +89,12 @@ def run_analysis_task(code, task_id):
         }
         print(f"[TIMEOUT] Task {task_id}")
     except Exception as e:
-        error_str = str(e)
+        import traceback
+        error_str = f"{str(e)}\n{traceback.format_exc()}"
         analysis_status[task_id] = {
             'status': 'error',
             'progress': 0,
-            'message': f'Error: {error_str}'
+            'message': f'Server error: {error_str[:2000]}'
         }
         print(f"[EXCEPTION] Task {task_id}: {error_str}")
 

@@ -305,11 +305,16 @@ function ReportDetail({ report, onBack }) {
   
   const images = report.images || []
   const categories = {
-    overview: images.filter(i => i.includes('Dashboard') || i.includes('增量分析') || i.includes('概览')),
-    trend: images.filter(i => i.match(/\/(00|01|02|03|05|06|08)_/)),
-    valuation: images.filter(i => i.match(/\/(04|11|12|13|21)_/)),
-    financials: images.filter(i => i.includes('财务') || i.match(/\/(07|09|14|15|16|18|20)_/)),
-    technicals: images.filter(i => i.includes('技术') || i.includes('回测') || i.includes('99_')),
+    // 核心概览: Dashboard、增量分析、概览
+    overview: images.filter(i => i.includes('Dashboard') || i.includes('增量分析') || i.includes('概览') || i.match(/\/0_/) || i.match(/\/D\d_/)),
+    // 趋势: 营收、现金流、市值、研发、利润率、营运资本 (00-03, 05, 06, 08)
+    trend: images.filter(i => i.match(/\/(0[0-3]|05|06|08)_/) || i.includes('营收') || i.includes('滚动') || i.includes('走势')),
+    // 估值: 估值分析、DCF、DDM、历史估值 (04, 11, 12, 13, 21)
+    valuation: images.filter(i => i.match(/\/(04|11|12|13|21)_/) || i.includes('估值') || i.includes('DCF') || i.includes('DDM')),
+    // 财务: EVA、ROE、财务费用、销售费用、财务状况、现金流结构 (07, 09, 14-18, 20, F开头)
+    financials: images.filter(i => i.includes('财务') || i.match(/\/(07|09|14|15|16|17|18|20)_/) || i.match(/\/F\d_/) || i.includes('EVA') || i.includes('ROE') || i.includes('杜邦')),
+    // 技术: 技术指标、回测 (10, 99)
+    technicals: images.filter(i => i.includes('技术') || i.includes('回测') || i.match(/\/(10|99)_/)),
     all: images
   }
   

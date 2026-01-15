@@ -1,682 +1,633 @@
-<div align="center">
+# 🛢️ BlackOil 股票分析系统
 
-# 📈 Analysis Pro 全维投资分析框架 v3.0
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**基于 Python 的综合金融分析工具 (股票/期货)**  
-覆盖数据获取 → 基本面/库存/基差分析 → 财报解读 → 量化回测 → **网页看板** 
+> 🚀 专业级 A股/期货 技术分析系统，支持多周期技术指标、资金流向、行业对比、DCF/DDM估值等全方位分析
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
-![React](https://img.shields.io/badge/React-19-61dafb.svg)
-![Flask](https://img.shields.io/badge/Flask-3.1+-black.svg)
-![akshare](https://img.shields.io/badge/Data-akshare-green.svg)
-![backtrader](https://img.shields.io/badge/Backtest-backtrader-orange.svg)
+**核心特性**：
+- ✅ 跨平台支持（macOS / Windows / Linux）
+- ✅ 20+ 种专业分析图表自动生成
+- ✅ AI 量化评分系统（0-100综合评分）
+- ✅ DCF/DDM 内在价值估算
+- ✅ Bloomberg 风格暗色专业界面
 
-</div>
+## 📋 目录
 
----
-
-## 🎯 核心亮点
-
-✅ **全面覆盖** - 股票和期货一体化分析框架  
-✅ **智能识别** - 自动区分股票/期货代码，支持中文名称输入  
-✅ **高质量报告** - 自动生成 20+ 维度的可视化分析报告  
-✅ **网页看板** - 专业简洁的 React 交互界面，实时在线分析  
-✅ **模型完整** - 包含 DCF/DDM/EVA 等 8 大估值模型  
-✅ **量化验证** - 集成 Backtrader 双均线回测策略  
-
----
-
-## 🗂️ 项目结构
-
-```
-├── stock_analysis/                  # 核心分析模块
-│   ├── stock_analysis_v2.py         # 主程序入口（统一支持 A股 + 期货）
-│   ├── data_fetcher.py              # 多线程数据抓取与清洗
-│   ├── analysis.py                  # 财务/技术指标计算库
-│   ├── industry_compare.py          # 行业横向对比模块
-│   ├── config.py                    # 模型参数与样式配置
-│   └── requirements.txt             # Python 依赖
-│
-└── akshare+backtrader回测框架/       # 独立回测策略示例 (Backtrader)
-    ├── Single Moving Average.py     # 单均线策略
-    ├── Double Moving Average.py     # 双均线金叉/死叉策略
-    └── Three moving averages.py     # 三均线交互策略
-```
-
----
-
-## ✨ 功能亮点
-
-### 🅰️ A股深度分析 (Stock)
-
-| 模块 | 核心功能 | 关键问题 |
-|------|----------|----------|
-| **🚀 增量分析** | 单季度拆分、TTM 序列、同比/环比趋势 | 业绩增量是否有预期？ |
-| **🏢 公司分析** | 成长性、竞争力、财务安全、分红能力 | 公司质地如何？ |
-| **📑 财报解读** | 业绩表现、现金流健康度、资产负债结构 | 财报有何风险信号？ |
-| **🏭 行业对比** | 杜邦分析对比、行业排位、雷达图 | 在行业中处于什么位置？ |
-| **🤖 量化回测** | 双均线交叉策略、夏普比率、最大回撤 | 策略历史表现如何？ |
-
-### 🚀 期货全维分析 (Futures)
-
-| 维度 | 分析内容 | 核心价值 |
-|------|----------|----------|
-| **📈 趋势分析** | 主连K线(3年)、MA均线系统、MACD/RSI/ATR | 识别当前趋势与波动率 |
-| **📦 库存分析** | 交易所仓单变化、季节性库存水位 | 供需关系的核心指标 |
-| **📊 基差分析** | 期现价差 (Basis)、期限结构 | 判断期现套利机会 |
-| **💰 席位持仓** | 前20名主力多空持仓对比、净持仓变化 | 聪明钱的流向 |
-| **🎯 综合评分** | 基于趋势、动量、持仓的多维打分 (0-100) | 快速判断多空方向 |
-
-#### 支持的期货品种
-
-**金属类**: 黄金(AU)、白银(AG)、铜(CU)、铝(AL)、锌(ZN)、铅(PB)、镍(NI)、锡(SN)、不锈钢(SS)
-
-**能源化工**: 原油(SC)、燃料油(FU)、沥青(BU)、PTA(TA)、甲醇(MA)、乙二醇(EG)、橡胶(RU)、纸浆(SP)、尿素(UR)、纯碱(SA)
-
-**黑色系**: 螺纹钢(RB)、热卷(HC)、铁矿石(I)、焦炭(J)、焦煤(JM)、动力煤(ZC)、硅铁(SF)、锰硅(SM)
-
-**农产品**: 豆粕(M)、豆油(Y)、棕榈油(P)、菜粕(RM)、菜油(OI)、玉米(C)、淀粉(CS)、鸡蛋(JD)、生猪(LH)、白糖(SR)、棉花(CF)、苹果(AP)、红枣(CJ)
-
-> 💡 **提示**: 输入中文名称或代码均可，系统会自动识别和映射
+- [快速开始](#快速开始)
+- [系统架构](#系统架构)
+- [环境要求](#环境要求)
+- [依赖安装](#依赖安装)
+- [启动方法](#启动方法)
+  - [macOS 启动](#macos-启动)
+  - [Windows 启动](#windows-启动)
+  - [Linux 启动](#linux-启动)
+- [常见问题排查](#常见问题排查)
+- [项目结构](#项目结构)
+- [功能特性](#功能特性)
+- [API 接口](#api-接口)
+- [技术实现细节](#技术实现细节)
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 环境准备
+**30 秒启动**：
 
 ```bash
-# 进入分析目录
-cd stock_analysis
+# 1. 克隆或进入项目目录
+cd Cupk_Vest
 
-# 安装核心依赖
+# 2. 运行环境诊断（确保依赖已安装）
+python diagnose.py
+
+# 3. 一键启动服务
+python start_dashboard.py
+
+# 4. 打开浏览器访问
+# http://localhost:5173
+```
+
+**使用方法**：
+1. 点击「新建分析」按钮
+2. 输入 6 位股票代码（如 `600519` 贵州茅台）
+3. 点击「开始分析」等待 3-5 分钟
+4. 分析完成后自动显示报告，可切换不同标签查看各类图表
+
+---
+
+## 系统架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Web Dashboard (React)                     │
+│                     http://localhost:5173                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ HTTP API
+┌─────────────────────▼───────────────────────────────────────┐
+│                  Flask Backend Server                        │
+│                   http://localhost:5001                      │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ subprocess
+┌─────────────────────▼───────────────────────────────────────┐
+│              stock_analysis_v2.py 分析引擎                   │
+│           (akshare + backtrader + matplotlib)               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 环境要求
+
+| 组件 | 最低版本 | 推荐版本 |
+|------|----------|----------|
+| Python | 3.9+ | 3.11+ |
+| Node.js | 16+ | 18+ |
+| npm | 8+ | 9+ |
+
+---
+
+## 依赖安装
+
+### 1. Python 依赖
+
+```bash
+cd stock_analysis
 pip install -r requirements.txt
 ```
 
-### 2. 统一运行入口
+**requirements.txt 包含：**
+- akshare (A股数据接口)
+- backtrader (回测框架)
+- pandas (数据处理)
+- matplotlib (图表绑制)
+- seaborn (统计可视化)
+- flask + flask-cors (Web服务)
 
-**只需一个脚本，自动识别股票或期货代码：**
-
-```bash
-# 股票模式 (输入6位代码)
-python stock_analysis_v2.py 600519    # 贵州茅台
-python stock_analysis_v2.py 000858    # 五粮液
-
-# 期货模式 (输入中文名称或代码)
-python stock_analysis_v2.py 螺纹钢    # 自动识别为 RB
-python stock_analysis_v2.py 黄金      # 自动识别为 AU
-python stock_analysis_v2.py RB        # 直接输入代码
-python stock_analysis_v2.py M         # 豆粕
-
-# 交互模式 (不带参数)
-python stock_analysis_v2.py
-# 按提示输入: "茅台" 或 "纯碱"
-```
-
-### 3. 独立回测示例
-
-```bash
-cd akshare+backtrader回测框架
-python "Double Moving Average.py"    # 运行策略
-```
-
-### 4. 🚀 启动 Web 看板 (New!)
-
-全新的 **React + Flask** 网页版报告查看器，专业简洁设计，支持实时分析。
-
-#### 首次设置 (仅需一次)
+### 2. Node.js 依赖
 
 ```bash
 cd web_dashboard
 npm install
-cd ..
 ```
 
-#### 启动看板
+---
+
+## 启动方法
+
+### ⚠️ 重要提示：Python 环境
+
+**系统中可能存在多个 Python 环境，必须使用安装了依赖的那个 Python！**
+
+在启动前，请先运行诊断工具确认环境：
 
 ```bash
-# 一键启动：自动开启后端API + 前端界面
+# 运行诊断脚本
+python diagnose.py
+```
+
+如果诊断失败，尝试使用其他 Python 命令：
+```bash
+python3 diagnose.py
+# 或
+/path/to/your/python diagnose.py
+```
+
+---
+
+### macOS 启动
+
+#### 方法 A：Conda / Miniforge 环境（推荐）
+
+如果你使用 Conda 或 Miniforge 管理 Python 环境：
+
+```bash
+# 1. 确认使用的是 Conda Python（不是系统 Python）
+which python
+# 应该显示类似: /Users/xxx/miniforge3/bin/python
+
+# 2. 安装依赖（如果未安装）
+cd stock_analysis
+pip install -r requirements.txt
+
+# 3. 启动服务
+cd ..  # 回到项目根目录
 python start_dashboard.py
 ```
 
-系统会自动打开浏览器访问 `http://localhost:5173`
+#### 方法 B：Homebrew Python3
 
-#### 看板功能
+如果你使用 Homebrew 安装的 Python3：
 
-| 功能 | 说明 |
-|------|------|
-| 📋 **报告列表** | 浏览所有已生成的分析报告 |
-| 🔍 **报告详情** | 分类查看股票/期货各维度图表 (Dashboard/趋势/估值/财务/技术) |
-| 🖼️ **图表放大** | 点击即可全屏查看高清图表 |
-| ⚡ **实时分析** | 直接输入股票/期货代码，网页中即时运行分析 |
-| 📊 **数据摘要** | 显示股票名称、行业、分析日期等元信息 |
-
-#### 浏览器支持
-
-- Chrome/Edge (推荐，最佳体验)
-- Safari/Firefox (全兼容)
-- 响应式设计，支持平板查看
-
----
-```
-│  数据获取   │ -> │  数据处理   │ -> │  分析引擎   │ -> │  报告输出   │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-       │                  │                  │                  │
-  data_fetcher       analysis.py      stock_analysis_v2      输出目录
-  • 财务三表        • 单季度拆分       • 增量分析           • *.png 图表
-```
----
-
-## ⚙️ 配置说明
-
-### Python 分析参数
-
-编辑 `stock_analysis/config.py` 可自定义：
-
-    'DISCOUNT_RATE': 0.10,      # 折现率 (WACC)
-    'TERMINAL_GROWTH': 0.03,    # 永续增长率
-}
-
-DDM_CONFIG = {
-    'REQUIRED_RETURN': 0.10,    # 要求回报率
-}
-
-EVA_CONFIG = {
-    'WACC': 0.08                # 加权平均资本成本
-}
-
-# 数据获取
-MAX_WORKERS = 8                 # 并发线程数
-KLINE_YEARS = 10                # K线数据年限
-
-# 可视化
-FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
-```
-
----
-
-## 🌐 Web Dashboard 架构
-
-### 技术栈
-
-| 层级 | 技术 | 版本 | 用途 |
-|------|------|------|------|
-| **前端** | axios | 最新 | HTTP 客户端 |
-| **后端** | Flask | 3.1.2 | API 服务器 |
-| **后端** | flask-cors | 最新 | 跨域资源共享 |
-| **后端** | Python | 3.9+ | 分析引擎 |
-
-### API 端点
-
-```
-POST   /api/analyze              # 启动新分析任务
-GET    /api/reports              # 列出所有报告
-GET    /api/reports/<id>         # 获取报告详情
-GET    /api/reports/<id>/summary # 获取报告数据摘要
-GET    /api/images/<path>        # 获取报告图片
-```
-
-### 数据流
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Web Browser                              │
-│  ┌──────────────────┐  ┌──────────────────┐                │
-│  │  Stock Input UI  │  │  Report Gallery  │                │
-│  └────────┬─────────┘  └────────┬─────────┘                │
-└───────────┼─────────────────────┼──────────────────────────┘
-            │                     │
-            │ HTTP/JSON           │ HTTP/JSON
-            ↓                     ↓
-      ┌─────────────────────────────────────┐
-      │      Flask API Server (5001)        │
-      │  ┌──────────────────────────────┐   │
-      │  │  /api/analyze (POST)         │   │
-      │  │  /api/reports (GET)          │   │
-      │  │  /api/images/<path> (GET)    │   │
-      │  └──────────────────────────────┘   │
-      └──────┬────────────────────────┬──────┘
-             │                        │
-             ↓                        ↓
-      ┌──────────────────┐  ┌──────────────────┐
-      │ stock_analysis   │  │ /分析报告_*/     │
-      │ (Python)         │  │ (PNG + JSON)     │
-      │                  │  │                  │
-      │ • 多线程抓取     │  │ • 图表缓存       │
-      │ • 指标计算       │  │ • 元数据存储     │
-      │ • 实时返回进度   │  │                  │
-      └──────────────────┘  └──────────────────┘
-```
-
-### 文件结构
-
-```
-web_dashboard/
-├── src/
-│   ├── App.jsx          # 主应用组件（4个子组件）
-│   ├── geek.css         # 全局样式（浅色主题）
-│   ├── main.jsx         # 入口
-│   └── index.css        # Tailwind 基础样式
-├── public/
-├── package.json         # npm 依赖定义
-├── vite.config.js       # Vite 配置
-└── index.html           # HTML 入口
-```
-
-### 核心组件
-
-| 组件 | 职责 | 交互 |
-|------|------|------|
-| **App** | 全局状态管理 + 路由切换 | 左侧 Tab 切换 |
-| **StockAnalyzer** | 新建分析表单 + 进度监控 | 输入股票/期货代码 → 轮询进度 |
-| **ReportDetail** | 报告详情展示 + 分类标签页 | 点击标签页切换图表分类 |
-| **ImageCard** | 图片卡片 + 全屏预览 | 点击放大 ↔ 缩小 |
-
----
-
-## 📝 输出报告详解
-
-运行后在当前目录生成 `分析报告_{股票代码}_{日期时间}/` 文件夹，包含：
-
-### 📁 报告文件结构
-
-#### 🅰️ 股票模式报告
-```
-分析报告_600519_20260107_1648/
-│
-├── 📊 增量分析
-│   └── 0_增量分析.png              # 单季度业绩拆分与同比/环比信号
-│
-├── 📈 滚动趋势分析 (00-08)
-│   ├── 00_营收利润滚动.png         # TTM营收与净利润走势
-│   ├── 01_营收现金流滚动.png       # 经营现金流 vs 营收匹配度
-│   ├── 02_现金流结构滚动.png       # 三大现金流结构变化
-│   ├── 03_市值营收滚动.png         # PS估值与市值走势
-│   ├── 05_研发投入滚动.png         # 研发费用占比趋势
-│   ├── 06_利润率结构.png           # 毛利率/净利率/费用率拆解
-│   ├── 07_EVA与FCF.png             # 经济增加值与自由现金流
-│   └── 08_营运资本结构.png         # 应收/存货/应付占比
-│
-├── 💹 估值与技术分析 (04, 10, 21)
-│   ├── 04_估值分析.png             # PE/PB/PS 综合估值
-│   ├── 10_技术指标.png             # K线 + MA均线 + MACD + RSI + KDJ
-│   └── 21_历史估值通道.png         # 历史PE/PB分位数通道
-│
-├── 🔬 深度财务分析 (09, 14-18)
-│   ├── 09_ROE杜邦分析.png          # 净利率×周转率×杠杆 分解
-│   ├── 14_股息率走势.png           # 历史分红与股息率
-│   ├── 15_财务费用走势.png         # 利息支出与财务费用率
-│   ├── 16_销售费用走势.png         # 销售费用占比趋势
-│   └── 18_财务状况一览.png         # 资产负债表/利润表/现金流核心指标
-│
-├── 💰 估值模型 (11-13)
-│   ├── 11_DCF估值.png              # 现金流折现模型 (支持负现金流)
-│   ├── 12_DDM估值.png              # 股利折现模型 (需有分红历史)
-│   └── 13_EVA估值.png              # 经济增加值模型
-│
-├── 🏭 行业对标 (20, 22)
-│   ├── 20_运营效率分析.png         # 周转率/现金周期对比
-│   └── 22_行业对标分析.png         # 自动匹配同行业TOP4雷达图
-│
-├── 📊 Dashboard 仪表盘 (D1-D3)
-│   ├── D1_基本面Dashboard.png      # 成长/盈利/安全 6维雷达
-│   ├── D2_估值Dashboard.png        # PE/PB/PS 综合评分
-│   └── D3_费用Dashboard.png        # 三费占比仪表盘
-│
-├── 🤖 量化回测
-│   └── 99_回测结果.png             # SMA双均线策略收益曲线
-│
-└── 📄 数据文件
-    └── analysis_data.json          # 原始分析数据 (可二次加工)
-```
-
-#### 🚀 期货模式报告
-```
-分析报告_RB_20260108_1200/
-│
-├── 📈 期货报告_RB_20260108.png     # 综合分析一张图 (高清大图)
-│   ├── 子图1: 价格趋势与指标 (MA60 + MACD + RSI)
-│   ├── 子图2: 波动率锥 (ATR历史分位)
-│   ├── 子图3: 库存年化趋势 (主要交易所仓单季节性)
-│   ├── 子图4: 期限结构 (主力 vs 远月价差 Basis)
-│   └── 子图5: 多空持仓对比 (前20名主力席位净持仓)
-│
-├── 📄 分析报告.txt                 # 自动生成的文字解读
-└── 📄 analysis_data.json           # 包含所有原始数据的JSON
-```
-
-### 📋 图表内容速查表
-
-| 编号 | 图表名称 | 核心内容 | 适用场景 |
-|:----:|----------|----------|----------|
-| **0** | 增量分析 | 单季度营收/净利润、同比/环比增速 | 业绩拐点判断 |
-| **00** | 营收利润滚动 | TTM营收、净利润趋势 | 长期成长性 |
-| **01** | 营收现金流滚动 | 经营现金流/营收比值 | 盈利质量验证 |
-| **02** | 现金流结构滚动 | 经营/投资/筹资现金流 | 资金流向分析 |
-| **03** | 市值营收滚动 | PS估值、市值走势 | 估值泡沫识别 |
-| **04** | 估值分析 | PE/PB/PS 多维估值 | 综合估值判断 |
-| **05** | 研发投入滚动 | 研发费用占营收比 | 创新投入力度 |
-| **06** | 利润率结构 | 毛利率、净利率、费用率 | 盈利能力剖析 |
-| **07** | EVA与FCF | 经济增加值、自由现金流 | 真实价值创造 |
-| **08** | 营运资本结构 | 应收/存货/应付占比 | 营运效率评估 |
-| **09** | ROE杜邦分析 | 净利率×周转×杠杆 | ROE驱动因素 |
-| **10** | 技术指标 | K线+MA+MACD+RSI+KDJ | 技术面择时 |
-| **11** | DCF估值 | 现金流折现内在价值 | 长期价值锚定 |
-| **12** | DDM估值 | 股利折现模型 | 高股息股估值 |
-| **14** | 股息率走势 | 历史分红、股息率 | 分红稳定性 |
-| **15-16** | 费用走势 | 财务/销售费用率 | 成本控制能力 |
-| **18** | 财务状况一览 | 三表核心指标汇总 | 财务健康速览 |
-| **20** | 运营效率分析 | 周转率、现金周期 | 运营能力对比 |
-| **21** | 历史估值通道 | PE/PB历史分位 | 高低估判断 |
-| **22** | 行业对标分析 | 同行业TOP4雷达图 | 竞争力定位 |
-| **D1** | 基本面Dashboard | 6维综合评分 | 快速体检 |
-| **D2** | 估值Dashboard | 估值综合评分 | 估值一览 |
-| **D3** | 费用Dashboard | 三费占比仪表 | 费用结构 |
-| **99** | 回测结果 | SMA策略收益曲线 | 量化验证 |
-
-> 💡 **提示**：部分图表依赖数据完整性，如公司无分红则不生成DDM估值图
-
-### 🎯 期货综合评分规则
-
-评分区间: **0-100分**，分为5个等级
-
-| 分数区间 | 操作建议 | 信号强度 |
-|:--------:|----------|----------|
-| 75-100 | **做多** | 强烈看涨信号 |
-| 60-74  | **偏多** | 温和看涨 |
-| 40-59  | **观望** | 中性震荡 |
-| 25-39  | **偏空** | 温和看跌 |
-| 0-24   | **做空** | 强烈看跌信号 |
-
-**评分维度 (满分100)**:
-- 趋势信号 (40分): MA均线排列、均线斜率
-- 动量信号 (30分): MACD金叉/死叉、RSI超买/超卖
-- 持仓信号 (20分): 主力席位净持仓方向
-- 波动率 (10分): ATR相对历史水平
-
----
-
-## 💡 使用技巧
-
-### 股票分析最佳实践
-
-1. **业绩拐点捕捉**: 重点关注 `0_增量分析.png`，观察单季度同比/环比拐点
-2. **估值安全边际**: 结合 `04_估值分析.png` 和 `21_历史估值通道.png`，寻找历史低位
-3. **现金流质量**: `01_营收现金流滚动.png` 中经营现金流/营收比应 > 1
-4. **行业竞争力**: `22_行业对标分析.png` 雷达图应优于行业平均
-5. **技术择时**: `10_技术指标.png` 配合基本面，避免高位追涨
-
-### 期货分析最佳实践
-
-1. **趋势为王**: 优先看 MA60 方向，配合 MACD 确认
-2. **库存季节性**: 对比历史同期库存水位，判断供需格局
-3. **基差修复**: 关注期现价差异常扩大/收窄的机会
-4. **主力动向**: 席位持仓大幅变化时，跟随聪明钱
-5. **波动率择时**: ATR 处于低位时，适合布局趋势单；高位时减少仓位
-
----
-
-## 📊 技术指标说明
-
-### 股票指标
-
-| 指标 | 计算方式 | 应用场景 |
-|------|----------|----------|
-| **PE(TTM)** | 市值 / 过去12个月净利润 | 估值水平，<15低估，>30高估 (因行业而异) |
-| **PB** | 市值 / 净资产 | 破净 (PB<1) 可能低估或基本面恶化 |
-| **PS** | 市值 / 营收 | 适用于亏损公司或高成长企业 |
-| **ROE** | 净利润 / 净资产 | >15%优秀，>20%卓越 |
-| **经营现金流/营收** | 经营活动现金流 / 营业收入 | >1 代表盈利质量高 |
-| **RSI** | 相对强弱指标 | >70超买，<30超卖 |
-| **KDJ** | 随机指标 | K线上穿D线金叉，下穿死叉 |
-
-### 期货指标
-
-| 指标 | 计算方式 | 应用场景 |
-|------|----------|----------|
-| **MACD** | 快慢均线差值 | 金叉做多，死叉做空 |
-| **RSI** | 14日相对强弱 | >70超买风险，<30超卖机会 |
-| **ATR** | 平均真实波动幅度 | 衡量市场波动率，设置止损参考 |
-| **MA60** | 60日移动平均线 | 中期趋势基准线 |
-| **基差** | 期货价 - 现货价 | 正基差(升水)，负基差(贴水) |
-| **持仓量** | 前20席位净多头 | >0看多，<0看空 |
-
----
-
-## ❓ 常见问题 FAQ
-
-<details>
-<summary><b>Q0: Web Dashboard 如何使用？</b></summary>
-
-**A**: 
-1. 进入 `web_dashboard` 目录执行 `npm install` (首次)
-2. 返回项目根目录执行 `python start_dashboard.py`
-3. 自动打开浏览器访问 `http://localhost:5173`
-4. 选择已生成的报告浏览，或输入股票/期货代码新建分析
-
-**端口说明**:
-- 前端 (React): http://localhost:5173
-- 后端 (Flask): http://localhost:5001
-
-如端口被占用，可修改 `start_dashboard.py` 和 `stock_analysis/server.py` 中的端口号。
-</details>
-
-<details>
-<summary><b>Q1: 为什么某些股票无法生成行业对标分析？</b></summary>
-
-**A**: 可能原因：
-1. 该股票所属行业分类不明确
-2. 同行业可对比公司数量不足4家
-3. akshare 行业数据暂未更新
-
-**解决方案**: 手动在 `stock_analysis_v2.py` 中指定对标公司代码
-</details>
-
-<details>
-<summary><b>Q2: Web Dashboard 中的新分析功能支持哪些输入格式？</b></summary>
-
-**A**: 支持以下格式：
-
-**股票**:
-- 6位代码: `600519`、`000858`
-- 中文名称: `茅台`、`五粮液`
-
-**期货**:
-- 品种代码: `RB`、`M`、`AU`
-- 中文名称: `螺纹钢`、`豆粕`、`黄金`
-
-系统会自动识别并映射到标准代码。输入后点击 **"开始分析"** 按钮，后台运行分析任务，进度条会实时更新。
-</details>
-
-<details>
-<summary><b>Q3: Dashboard 中的分析需要多长时间？</b></summary>
-
-**A**: 
-- **股票分析**: 1-3 分钟 (取决于网络和 CPU)
-- **期货分析**: 30-60 秒 (数据量较小)
-
-优化建议：
-1. 修改 `stock_analysis/config.py` 中 `KLINE_YEARS=5` (默认10年)
-2. 增加 `MAX_WORKERS=16` (默认8)
-3. 如不需要回测，注释掉 `analyzer.run_backtest()` 行
-
-分析完成后，报告会自动出现在左侧列表中。
-</details>
-
-<details>
-<summary><b>Q4: 期货分析支持查看指定合约吗？</b></summary>
-
-**A**: 当前版本仅支持主连合约分析。如需指定合约，可修改 `FuturesAnalyzer` 类中的 `ak.futures_main_sina()` 为 `ak.futures_zh_spot()` 并手动指定合约代码。
-</details>
-
-<details>
-<summary><b>Q5: 如何加快分析速度？</b></summary>
-
-**A**: 
-1. 降低 `config.py` 中的 `KLINE_YEARS` (默认10年改为5年)
-2. 增加 `MAX_WORKERS` 并发线程数 (默认8，可尝试16)
-3. 如不需要回测，可注释掉 `analyzer.run_backtest()` 行
-</details>
-
-<details>
-<summary><b>Q6: 估值模型 (DCF/DDM/EVA) 如何调整参数？</b></summary>
-
-**A**: 编辑 `config.py`:
-- **DCF**: 调整 `DISCOUNT_RATE`(折现率) 和 `TERMINAL_GROWTH`(永续增长率)
-- **DDM**: 调整 `REQUIRED_RETURN`(要求回报率)
-- **EVA**: 调整 `WACC`(加权平均资本成本)
-
-建议根据行业特性调整，如高成长行业可提高永续增长率。
-</details>
-
-<details>
-<summary><b>Q7: 数据获取失败怎么办？</b></summary>
-
-**A**: 
-1. 检查网络连接
-2. akshare 接口可能限流，等待1-2分钟后重试
-3. 更新 akshare 到最新版: `pip install --upgrade akshare`
-4. 查看 akshare 官方文档确认接口是否变更
-</details>
-
-<details>
-<summary><b>Q8: 能否批量分析多只股票？</b></summary>
-
-**A**: 可以使用 Shell 脚本批量运行:
 ```bash
-#!/bin/bash
-for code in 600519 000858 000333 002683
-do
-    python stock_analysis_v2.py $code
-    sleep 5  # 避免API限流
-done
-```
-</details>
+# 1. 确认使用的是 Homebrew Python
+which python3
+# 应该显示类似: /opt/homebrew/bin/python3
 
----
-
-## 🔄 更新日志
-
-### v3.0 (2026-01-07)
-- ✨ 新增期货全维分析模块 (趋势/库存/基差/持仓)
-- ✨ 统一股票与期货入口，智能识别代码类型
-- ✨ 期货支持30+品种，覆盖金属/能源/农产品/黑色系
-- 📊 期货综合评分系统 (0-100分多空判断)
-- 🎨 期货报告一张图展示5维分析
-- 🌐 **Web Dashboard 上线**: React + Flask 网页版报告查看器
-  - 📋 报告列表与详情浏览
-  - 🔍 分类图表查看 (Dashboard/趋势/估值/财务/技术)
-  - 🖼️ 图表全屏放大预览
-  - ⚡ 网页中实时运行分析，支持输入股票/期货代码
-  - 📱 响应式设计，专业简洁 UI
-
-### v2.1 (2025)
-- 📈 完善行业对标分析雷达图
-- 🔧 优化财报解读逻辑
-- 🐛 修复部分数据缺失时的异常
-
-### v2.0 (2024)
-- 🚀 增量分析模块上线
-- 💰 新增 DCF/DDM/EVA 三大估值模型
-- 📊 Dashboard 仪表盘可视化
-- 🤖 集成 backtrader 量化回测
-
----
-
-## ⚠️ 注意事项
-
-| 问题 | 解决方案 |
-|------|----------|
-| Dashboard 无法启动 | 检查 Node.js 版本 (>=18)，执行 `npm install` 更新依赖 |
-| 前后端端口冲突 | 修改 `start_dashboard.py` 和 `server.py` 中的端口号 |
-| 分析任务卡住 | 检查后台进程是否崩溃，查看终端错误日志 |
-| 图片无法加载 | 确保后端 Flask 服务运行正常，检查网络连接 |
-| akshare 接口超时 | 降低 `MAX_WORKERS` 或重试 |
-| 回测功能不可用 | 执行 `pip install backtrader` |
-| 中文乱码 | 修改 `config.py` 中 `FONT_FAMILY` |
-| 数据缺失 | 检查股票代码是否正确、是否已退市 |
-| 行业对比无数据 | 检查公司行业分类是否正确 |
-
----
-
-## 📚 依赖说明
-
-| 库 | 用途 |
-|----|------|
-| akshare | A股/期货数据源 + 行业对比 |
-| pandas / numpy | 数据处理 |
-| matplotlib / seaborn | 可视化 |
-| backtrader | 量化回测框架 |
-
----
-
-## 🤝 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-### 开发建议
-
-1. Fork 本仓库
-2. 创建特性分支: `git checkout -b feature/AmazingFeature`
-3. 提交更改: `git commit -m 'Add some AmazingFeature'`
-4. 推送分支: `git push origin feature/AmazingFeature`
-5. 提交 Pull Request
-
-### 代码规范
-
-- 使用 Python 3.9+ 特性
-- 遵循 PEP 8 代码风格
-- 添加必要的注释和文档字符串
-- 新增功能需包含使用示例
-
-### Dashboard 开发
-
-**前端开发** (React):
-```bash
-cd web_dashboard
-npm run dev          # 启动开发服务器 (带热更新)
-npm run build        # 打包生产版本
-```
-
-**后端开发** (Flask):
-```bash
+# 2. 安装依赖
 cd stock_analysis
-# 修改 server.py 后自动重载 (debug mode)
-python server.py
+pip3 install -r requirements.txt
+
+# 3. 启动服务
+cd ..
+python3 start_dashboard.py
 ```
 
-**UI 组件开发建议**:
-- 新组件放在 `App.jsx` 中或创建 `components/` 目录
-- 使用 Tailwind CSS 类名 + `geek.css` 全局样式
-- 参考 `ImageCard` 组件实现 Lightbox 模式
-- 所有 API 调用使用 axios + try-catch 错误处理
+#### 方法 C：系统 Python（不推荐）
+
+macOS 系统 Python 可能有权限限制：
+
+```bash
+# 使用 --user 安装到用户目录
+cd stock_analysis
+python3 -m pip install --user -r requirements.txt
+
+# 启动
+cd ..
+python3 start_dashboard.py
+```
 
 ---
 
-## ⚖️ 免责声明
+### Windows 启动
 
-**本工具仅供学习和研究使用，不构成任何投资建议。**
+#### 方法 A：命令提示符 (CMD)
 
-- 所有数据来源于公开数据接口 (akshare)，不保证实时性和准确性
-- 分析结果基于历史数据和量化模型，不代表未来表现
-- 投资有风险，决策需谨慎，请独立判断并自行承担投资风险
-- 作者不对使用本工具造成的任何损失负责
+```cmd
+:: 1. 打开命令提示符，进入项目目录
+cd C:\path\to\Cupk_Vest
+
+:: 2. 确认 Python 路径
+where python
+:: 应该显示 Python 安装路径
+
+:: 3. 安装依赖
+cd stock_analysis
+pip install -r requirements.txt
+
+:: 4. 启动服务
+cd ..
+python start_dashboard.py
+```
+
+#### 方法 B：PowerShell
+
+```powershell
+# 1. 进入项目目录
+cd C:\path\to\Cupk_Vest
+
+# 2. 确认 Python
+Get-Command python
+
+# 3. 安装依赖
+cd stock_analysis
+pip install -r requirements.txt
+
+# 4. 启动
+cd ..
+python start_dashboard.py
+```
+
+#### 方法 C：Anaconda Prompt（推荐）
+
+如果使用 Anaconda：
+
+```bash
+# 1. 激活环境（可选）
+conda activate base  # 或你的自定义环境
+
+# 2. 进入目录
+cd C:\path\to\Cupk_Vest
+
+# 3. 安装依赖
+cd stock_analysis
+pip install -r requirements.txt
+
+# 4. 启动
+cd ..
+python start_dashboard.py
+```
+
+#### Windows 特别说明
+
+1. **不要使用** `python3` 命令，Windows 上应使用 `python`
+2. 如果出现 **"'python' 不是内部或外部命令"**，需要将 Python 添加到系统 PATH
+3. 推荐使用 **Anaconda/Miniconda** 管理环境
 
 ---
 
-## 📧 联系方式
+### Linux 启动
 
-- 问题反馈: 提交 [GitHub Issues](../../issues)
-- 功能建议: 提交 [GitHub Discussions](../../discussions)
+#### Ubuntu / Debian
+
+```bash
+# 1. 安装 Python 和 pip（如果未安装）
+sudo apt update
+sudo apt install python3 python3-pip python3-venv
+
+# 2. 安装 Node.js（如果未安装）
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nodejs
+
+# 3. 进入项目目录
+cd /path/to/Cupk_Vest
+
+# 4. 安装 Python 依赖
+cd stock_analysis
+pip3 install -r requirements.txt
+
+# 5. 安装前端依赖
+cd ../web_dashboard
+npm install
+
+# 6. 启动服务
+cd ..
+python3 start_dashboard.py
+```
+
+#### CentOS / RHEL
+
+```bash
+# 使用 yum 或 dnf 安装依赖
+sudo yum install python3 python3-pip nodejs npm
+
+# 后续步骤同上
+```
 
 ---
 
-## 📄 License
+## 常见问题排查
+
+### ❌ 问题 1：No module named 'akshare'
+
+**原因**：依赖安装在了其他 Python 环境中
+
+**解决方案**：
+
+```bash
+# 1. 检查当前使用的 Python
+which python   # macOS/Linux
+where python   # Windows
+
+# 2. 检查依赖是否安装
+python -c "import akshare; print('OK')"
+
+# 3. 如果报错，重新安装依赖
+cd stock_analysis
+pip install -r requirements.txt
+```
+
+**macOS 特别注意**：
+- `python` 命令可能指向 Conda/Miniforge
+- `python3` 命令可能指向 Homebrew 或系统 Python
+- 确保启动和安装使用**同一个 Python**
+
+---
+
+### ❌ 问题 2：Analysis failed（分析失败）
+
+**可能原因**：
+1. Python 环境问题
+2. 网络连接问题（akshare 需要联网）
+3. 股票代码错误
+
+**解决方案**：
+
+```bash
+# 1. 运行诊断工具
+python diagnose.py
+
+# 2. 手动测试分析脚本
+cd stock_analysis
+python stock_analysis_v2.py 600519 stock
+
+# 3. 检查网络连接
+python -c "import akshare as ak; print(ak.stock_zh_a_spot_em().head())"
+```
+
+---
+
+### ❌ 问题 3：中文乱码 / 字体问题
+
+**Windows 解决方案**：
+系统已自动配置 SimHei 字体，如果仍有问题：
+```bash
+# 检查系统字体
+python -c "import matplotlib.font_manager as fm; print([f.name for f in fm.fontManager.ttflist if 'Hei' in f.name or 'hei' in f.name])"
+```
+
+**macOS 解决方案**：
+系统已自动配置 Arial Unicode MS，如果仍有问题：
+```bash
+# 检查系统字体
+python -c "import matplotlib.font_manager as fm; print([f.name for f in fm.fontManager.ttflist if 'Arial' in f.name])"
+```
+
+---
+
+### ❌ 问题 4：端口被占用
+
+**错误信息**：`Address already in use`
+
+**解决方案**：
+
+```bash
+# macOS/Linux: 查找并关闭占用端口的进程
+lsof -i :5001
+kill -9 <PID>
+
+lsof -i :5173
+kill -9 <PID>
+
+# Windows: 查找并关闭占用端口的进程
+netstat -ano | findstr :5001
+taskkill /PID <PID> /F
+
+netstat -ano | findstr :5173
+taskkill /PID <PID> /F
+```
+
+---
+
+### ❌ 问题 5：前端依赖安装失败
+
+**解决方案**：
+
+```bash
+# 清除缓存重新安装
+cd web_dashboard
+rm -rf node_modules package-lock.json
+npm cache clean --force
+npm install
+```
+
+---
+
+## 项目结构
+
+```
+Cupk_Vest/
+├── start_dashboard.py          # 🚀 一键启动脚本
+├── diagnose.py                 # 🔧 环境诊断工具
+├── README.md                   # 📖 本文档
+├── TODO.md                     # 📝 开发计划
+├── WINDOWS_FIX.md              # 🪟 Windows 问题修复指南
+│
+├── stock_analysis/             # 📊 Python 分析模块
+│   ├── server.py               # Flask API 服务器
+│   ├── stock_analysis_v2.py    # 主分析脚本
+│   ├── analysis.py             # 分析逻辑
+│   ├── data_fetcher.py         # 数据获取
+│   ├── config.py               # 配置（含跨平台字体）
+│   ├── industry_compare.py     # 行业对比
+│   ├── requirements.txt        # Python 依赖
+│   └── 分析报告_*/             # 生成的分析报告
+│
+├── web_dashboard/              # ⚛️ React 前端
+│   ├── package.json            # Node.js 依赖
+│   ├── vite.config.js          # Vite 构建配置
+│   ├── index.html              # HTML 入口
+│   └── src/
+│       ├── App.jsx             # 主应用组件
+│       ├── App.css             # 样式
+│       ├── geek.css            # 极客风格样式
+│       ├── components/         # React 组件
+│       ├── hooks/              # 自定义 Hooks
+│       └── utils/              # 工具函数
+│
+└── akshare+backtrader回测框架/  # 📈 回测策略示例
+    ├── Single Moving Average.py
+    ├── Double Moving Average.py
+    └── Three moving averages.py
+```
+
+---
+
+## 功能特性
+
+### 📈 A股深度分析
+
+分析引擎生成 **20+ 种专业图表**，按类别组织：
+
+| 分类 | 图表编号 | 包含内容 |
+|------|----------|----------|
+| **核心概览** | 0_, D1-D3 | 增量分析、基本面Dashboard、估值Dashboard、费用Dashboard |
+| **趋势分析** | 00-03, 05, 06, 08 | 营收利润滚动、现金流滚动、市值营收滚动、研发投入、利润率结构、营运资本 |
+| **估值分析** | 04, 11, 12, 13, 21 | 估值分析、DCF估值、DDM估值、历史估值通道 |
+| **财务分析** | 07, 09, 14-18, 20, F5-F6 | EVA与FCF、ROE杜邦分析、股息率/费用走势、财务状况、运营效率、现金流结构 |
+| **技术分析** | 10, 99 | 技术指标（MA/MACD/RSI/布林带）、回测结果 |
+
+### 📊 核心指标覆盖
+
+- **盈利能力**：ROE、毛利率、净利率、ROIC
+- **成长性**：营收增速、净利润增速、研发投入占比
+- **安全性**：负债率、流动比率、速动比率
+- **估值体系**：PE/PB、DCF内在价值、DDM股息折现（Gordon/两阶段）
+- **现金流质量**：经营现金流/净利润、自由现金流、EVA经济增加值
+
+### 🤖 AI 量化评分系统
+
+系统自动生成 **0-100 综合投资评分**，包含五大维度：
+- 成长性评分（营收利润增速）
+- 盈利能力评分（ROE/利润率）
+- 稳定性评分（业绩波动）
+- 安全性评分（负债/现金流）
+- 估值评分（PE/PB/DCF对比）
+
+### 💹 期货分析
+
+支持主要期货品种技术分析：
+- 黄金 (AU)、白银 (AG)
+- 螺纹钢 (RB)、铁矿石 (I)
+- 原油 (SC)、铜 (CU)
+
+### 📈 技术分析指标
+- 多周期 K 线分析（日/周/月）
+- MACD、RSI、KDJ、布林带等指标
+- 成交量分析
+- 移动平均线（MA5/10/20/60）
+
+### 💰 资金流向
+- 主力资金监控
+- 散户资金监控
+- 资金流入流出统计
+
+### 🏭 行业对比
+- 同行业股票对比
+- 行业排名
+- 相对强弱分析
+
+### 📊 可视化图表
+- K 线图
+- 资金流向图
+- 技术指标图
+- 行业对比图
+
+### 🎨 界面风格
+- Bloomberg 终端风格暗色主题
+- TradingView 专业图表配色
+- 响应式布局
+
+---
+
+## API 接口
+
+### 获取报告列表
+```
+GET /api/reports
+```
+
+### 获取单个报告
+```
+GET /api/reports/<report_name>
+```
+
+### 发起新分析
+```
+POST /api/analyze
+Body: {
+  "code": "600519",
+  "market": "stock"
+}
+```
+
+### 查询分析状态
+```
+GET /api/analyze/<task_id>
+```
+
+### 获取报告图片
+```
+GET /api/reports/<report_name>/images/<image_name>
+```
+
+---
+
+## 📞 技术支持
+
+如遇到问题：
+
+1. 先运行诊断工具：`python diagnose.py`
+2. 查看 [WINDOWS_FIX.md](WINDOWS_FIX.md) 获取 Windows 专项问题解决方案
+3. 查看本文档的常见问题排查部分
+
+---
+
+## 📜 License
 
 MIT License
 
 ---
 
-## ⭐ Star History
+## 🔧 技术实现细节
 
-如果这个项目对你有帮助，请给一个 ⭐️ Star 支持一下！
+### 前端架构 (React + Vite)
+
+```
+web_dashboard/src/
+├── App.jsx          # 主应用组件 (1100+ 行)
+│   ├── App()        # 报告列表 + 路由
+│   ├── ReportDetail()  # 报告详情 + 图表分类
+│   ├── AnalyzerPanel() # 新建分析面板
+│   └── SummarySection() # AI 摘要展示
+├── App.css          # 主样式
+├── geek.css         # Bloomberg 风格主题
+└── index.css        # 全局样式
+```
+
+**图表分类过滤逻辑**：
+```javascript
+const categories = {
+  overview: images.filter(i => i.includes('Dashboard') || i.includes('增量分析') || i.match(/\/0_/) || i.match(/\/D\d_/)),
+  trend: images.filter(i => i.match(/\/(0[0-3]|05|06|08)_/) || i.includes('营收') || i.includes('滚动')),
+  valuation: images.filter(i => i.match(/\/(04|11|12|13|21)_/) || i.includes('估值')),
+  financials: images.filter(i => i.match(/\/(07|09|14|15|16|17|18|20)_/) || i.match(/\/F\d_/) || i.includes('EVA')),
+  technicals: images.filter(i => i.includes('技术') || i.includes('回测') || i.match(/\/(10|99)_/)),
+  all: images
+}
+```
+
+### 后端架构 (Flask)
+
+```
+stock_analysis/
+├── server.py            # Flask API 服务器
+│   ├── /api/reports     # 报告列表
+│   ├── /api/analyze     # 发起分析（异步）
+│   ├── /api/analyze/<id># 查询状态
+│   └── /api/images/<path># 图片服务
+├── stock_analysis_v2.py # 主分析引擎 (6000+ 行)
+│   ├── 数据获取模块     # akshare 并行获取
+│   ├── 财务分析模块     # 杜邦分析、现金流
+│   ├── 估值模块        # DCF/DDM/PE/PB
+│   ├── 技术分析模块     # MA/MACD/RSI/布林带
+│   └── 可视化模块       # matplotlib 图表生成
+└── config.py            # 跨平台配置（字体等）
+```
+
+### 跨平台兼容性
+
+| 问题 | 解决方案 |
+|------|----------|
+| Windows 编码 | `sys.stdout = TextIOWrapper(..., encoding='utf-8', errors='replace')` |
+| 中文字体 | macOS: Arial Unicode MS / Heiti; Windows: SimHei; Linux: Noto Sans CJK |
+| 子进程执行 | 使用 `sys.executable` 确保使用正确的 Python 解释器 |
+| GUI 后端 | `matplotlib.use('Agg')` 无头模式渲染 |
+
+### 性能优化
+
+- **并行数据获取**：使用 ThreadPoolExecutor 并发请求 akshare API
+- **增量分析**：只重新生成变化的图表
+- **图片懒加载**：前端按需加载可视区域图片
+- **缓存机制**：报告数据 JSON 缓存避免重复计算
+
+---
+
+## 🙏 致谢
+
+- [akshare](https://github.com/akfamily/akshare) - 优秀的 A股数据接口
+- [backtrader](https://github.com/mementum/backtrader) - 强大的回测框架
+- [Recharts](https://recharts.org/) - React 图表库
+- [Lucide Icons](https://lucide.dev/) - 精美图标库

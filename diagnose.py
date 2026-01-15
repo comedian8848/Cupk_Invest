@@ -29,24 +29,30 @@ print(f"   OS: {system} {platform.release()}")
 print(f"   机器: {platform.machine()}")
 
 # 3. 检查关键依赖
-print("\n[3] 关键依赖库")
+print("\n[3] 关键Python依赖")
 dependencies = {
     'akshare': 'A股数据获取',
     'backtrader': '量化回测',
     'pandas': '数据处理',
     'matplotlib': '绘图',
+    'seaborn': '统计可视化',
     'flask': 'Web服务器',
     'flask_cors': 'CORS支持',
-    'axios': 'HTTP请求',
-    'react': 'React框架'
 }
 
+all_ok = True
 for package, description in dependencies.items():
     try:
         __import__(package)
         print(f"   ✅ {package}: 已安装 ({description})")
     except ImportError:
         print(f"   ❌ {package}: 未安装 ({description})")
+        all_ok = False
+
+if all_ok:
+    print("   ✅ 所有 Python 依赖已满足")
+else:
+    print("   ⚠️  部分依赖缺失，请运行: pip install -r stock_analysis/requirements.txt")
 
 # 4. 检查字体配置
 print("\n[4] Matplotlib字体")
@@ -86,7 +92,9 @@ required_files = {
     'stock_analysis/stock_analysis_v2.py': '分析引擎',
     'stock_analysis/server.py': 'Flask后端',
     'stock_analysis/config.py': '配置文件',
+    'stock_analysis/requirements.txt': 'Python依赖',
     'web_dashboard/src/App.jsx': 'React前端',
+    'web_dashboard/package.json': 'Node依赖配置',
     'start_dashboard.py': '启动脚本'
 }
 
@@ -97,6 +105,28 @@ for file_path, description in required_files.items():
         print(f"   ✅ {file_path}: 存在 ({description})")
     else:
         print(f"   ❌ {file_path}: 不存在 ({description})")
+
+# 5.5 检查 Node.js 环境
+print("\n[5.5] Node.js 环境")
+import subprocess
+try:
+    node_version = subprocess.check_output(['node', '--version'], text=True, stderr=subprocess.DEVNULL).strip()
+    print(f"   ✅ Node.js: {node_version}")
+except (FileNotFoundError, subprocess.CalledProcessError):
+    print("   ❌ Node.js: 未安装 (需要 16+)")
+
+try:
+    npm_version = subprocess.check_output(['npm', '--version'], text=True, stderr=subprocess.DEVNULL).strip()
+    print(f"   ✅ npm: {npm_version}")
+except (FileNotFoundError, subprocess.CalledProcessError):
+    print("   ❌ npm: 未安装")
+
+# 检查前端依赖是否安装
+node_modules_path = os.path.join(script_dir, 'web_dashboard', 'node_modules')
+if os.path.exists(node_modules_path):
+    print("   ✅ web_dashboard/node_modules: 已安装")
+else:
+    print("   ⚠️  web_dashboard/node_modules: 未安装 (运行: cd web_dashboard && npm install)")
 
 # 6. 检查端口
 print("\n[6] 端口检查")
