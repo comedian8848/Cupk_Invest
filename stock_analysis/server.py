@@ -22,13 +22,26 @@ def run_analysis_task(code, task_id):
         analysis_status[task_id] = {'status': 'running', 'progress': 0, 'message': 'Starting analysis...'}
         
         script_path = os.path.join(WORKING_DIR, 'stock_analysis_v2.py')
-        result = subprocess.run(
-            ['python', script_path, code],
-            cwd=WORKING_DIR,
-            capture_output=True,
-            text=True,
-            timeout=3600  # 1 hour timeout
-        )
+        
+        # Try python3 first, fallback to python
+        try:
+            result = subprocess.run(
+                ['python3', script_path, code],
+                cwd=WORKING_DIR,
+                capture_output=True,
+                text=True,
+                timeout=3600,  # 1 hour timeout
+                env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+            )
+        except FileNotFoundError:
+            result = subprocess.run(
+                ['python', script_path, code],
+                cwd=WORKING_DIR,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+                env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+            )
         
         if result.returncode == 0:
             analysis_status[task_id] = {
@@ -38,23 +51,29 @@ def run_analysis_task(code, task_id):
                 'code': code
             }
         else:
+            # Show full error message (first 1000 chars)
+            error_msg = result.stderr if result.stderr else result.stdout
             analysis_status[task_id] = {
                 'status': 'error',
                 'progress': 0,
-                'message': f'Analysis failed: {result.stderr[:200]}'
+                'message': f'Analysis failed: {error_msg[:1000]}'
             }
+            print(f"[ERROR] Task {task_id}: {error_msg}")  # Log to server console
     except subprocess.TimeoutExpired:
         analysis_status[task_id] = {
             'status': 'error',
             'progress': 0,
             'message': 'Analysis timeout (>1 hour)'
         }
+        print(f"[TIMEOUT] Task {task_id}")
     except Exception as e:
+        error_str = str(e)
         analysis_status[task_id] = {
             'status': 'error',
             'progress': 0,
-            'message': f'Error: {str(e)}'
+            'message': f'Error: {error_str}'
         }
+        print(f"[EXCEPTION] Task {task_id}: {error_str}")
 
 @app.route('/api/analyze', methods=['POST'])
 def start_analysis():

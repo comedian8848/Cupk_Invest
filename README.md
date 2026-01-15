@@ -158,21 +158,13 @@ python start_dashboard.py
 - 响应式设计，支持平板查看
 
 ---
-
-## 🔗 工作流程
-
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │  数据获取   │ -> │  数据处理   │ -> │  分析引擎   │ -> │  报告输出   │
 └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
        │                  │                  │                  │
   data_fetcher       analysis.py      stock_analysis_v2      输出目录
   • 财务三表        • 单季度拆分       • 增量分析           • *.png 图表
-  • K线/分红        • TTM 计算         • 公司分析           • report.md
-  • 北向资金        • 技术指标         • 财报解读
-  • 股东结构                           • 量化回测
 ```
-
 ---
 
 ## ⚙️ 配置说明
@@ -181,9 +173,6 @@ python start_dashboard.py
 
 编辑 `stock_analysis/config.py` 可自定义：
 
-```python
-# 估值模型参数
-DCF_CONFIG = {
     'DISCOUNT_RATE': 0.10,      # 折现率 (WACC)
     'TERMINAL_GROWTH': 0.03,    # 永续增长率
 }
@@ -212,9 +201,6 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 
 | 层级 | 技术 | 版本 | 用途 |
 |------|------|------|------|
-| **前端** | React | 19 | UI 组件与交互 |
-| **前端** | Vite | 7.3+ | 开发服务器与构建 |
-| **前端** | lucide-react | 最新 | 图标库 |
 | **前端** | axios | 最新 | HTTP 客户端 |
 | **后端** | Flask | 3.1.2 | API 服务器 |
 | **后端** | flask-cors | 最新 | 跨域资源共享 |
@@ -224,7 +210,6 @@ FONT_FAMILY = 'Arial Unicode MS'  # macOS 字体（Windows 改为 SimHei）
 
 ```
 POST   /api/analyze              # 启动新分析任务
-GET    /api/analyze/<task_id>    # 查询分析进度和结果
 GET    /api/reports              # 列出所有报告
 GET    /api/reports/<id>         # 获取报告详情
 GET    /api/reports/<id>/summary # 获取报告数据摘要

@@ -163,6 +163,7 @@ function StockAnalyzer({ onComplete, onBack }) {
   const [taskId, setTaskId] = useState(null)
   const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
+  const [showErrorDetails, setShowErrorDetails] = useState(false)
 
   const startAnalysis = async () => {
     if (!code.trim()) {
@@ -171,6 +172,7 @@ function StockAnalyzer({ onComplete, onBack }) {
     }
 
     setError(null)
+    setShowErrorDetails(false)
     try {
       const res = await axios.post(`${API_BASE}/analyze`, { code: code.trim() })
       setTaskId(res.data.task_id)
@@ -194,6 +196,7 @@ function StockAnalyzer({ onComplete, onBack }) {
         } else if (res.data.status === 'error') {
           clearInterval(interval)
           setError(res.data.message)
+          setShowErrorDetails(true)
         }
       } catch (err) {
         clearInterval(interval)

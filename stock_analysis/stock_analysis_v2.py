@@ -8,30 +8,54 @@ A股公司分析与财报解读工具 v2.0
 3. 美观可视化 - 趋势图、杜邦分析、现金流结构、综合评分仪表盘
 """
 
-import akshare as ak
-import backtrader as bt
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import Wedge
-import seaborn as sns
-import os
 import sys
-import json
-from datetime import datetime
-import time
-import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
+import os
 
-# 导入新的数据获取模块
-import data_fetcher
+# 设置编码和路径
+if sys.platform.startswith('win'):
+    # Windows 编码处理
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# 从配置文件导入常量
-from config import MAX_WORKERS, FONT_FAMILY, COLORS, DCF_CONFIG, DDM_CONFIG, EVA_CONFIG
+# 确保脚本所在目录在 Python 路径中
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
-warnings.filterwarnings('ignore')
+# 导入依赖
+try:
+    import akshare as ak
+    import backtrader as bt
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from matplotlib.patches import Wedge
+    import seaborn as sns
+    import json
+    from datetime import datetime
+    import time
+    import warnings
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from functools import lru_cache
+
+    # 导入新的数据获取模块
+    import data_fetcher
+
+    # 从配置文件导入常量
+    from config import MAX_WORKERS, FONT_FAMILY, COLORS, DCF_CONFIG, DDM_CONFIG, EVA_CONFIG
+
+    warnings.filterwarnings('ignore')
+except ImportError as e:
+    print(f"ERROR: 缺少必要的依赖库: {e}", file=sys.stderr)
+    print(f"请运行: pip install -r requirements.txt", file=sys.stderr)
+    sys.exit(1)
+except Exception as e:
+    print(f"ERROR: 导入失败: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 
 # 全局线程池（复用，避免频繁创建销毁）
 _EXECUTOR = ThreadPoolExecutor(max_workers=MAX_WORKERS)
@@ -43,9 +67,14 @@ plt.rcParams['font.sans-serif'] = [FONT_FAMILY, 'PingFang SC', 'SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 plt.rcParams['figure.dpi'] = 150
 
+# 导入本地模块
+try:
+    import analysis
+    import industry_compare  # 行业对比模块 (基于 akshare)
+except ImportError as e:
+    print(f"ERROR: 缺少本地模块: {e}", file=sys.stderr)
+    sys.exit(1)
 
-import analysis
-import industry_compare  # 行业对比模块 (基于 akshare)
 import platform
 from matplotlib import font_manager
 

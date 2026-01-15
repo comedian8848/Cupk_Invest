@@ -30,9 +30,30 @@ EVA_CONFIG = {
 COMPETITOR_CODES = ['601008', '601880', '603967']
 
 # ==================== 样式与颜色 ====================
-# Matplotlib 全局字体设置
+# Matplotlib 全局字体设置 - 跨平台自适应
 # 'Arial Unicode MS' (macOS), 'SimHei' (Windows), 'WenQuanYi Micro Hei' (Linux)
-FONT_FAMILY = 'Arial Unicode MS' 
+import platform
+import matplotlib.font_manager as fm
+
+# 根据操作系统选择合适的字体
+_system = platform.system()
+if _system == 'Darwin':  # macOS
+    FONT_FAMILY = 'Arial Unicode MS'
+elif _system == 'Windows':
+    FONT_FAMILY = 'SimHei'
+else:  # Linux
+    FONT_FAMILY = 'WenQuanYi Micro Hei'
+
+# 如果首选字体不可用，尝试备选字体
+_fonts = [FONT_FAMILY, 'SimHei', 'Arial Unicode MS', 'WenQuanYi Micro Hei', 'DejaVu Sans']
+_available_fonts = {f.name for f in fm.fontManager.ttflist}
+for font in _fonts:
+    if font in _available_fonts:
+        FONT_FAMILY = font
+        break
+else:
+    # 如果都不可用，使用系统默认
+    FONT_FAMILY = 'sans-serif' 
 
 # 颜色主题
 COLORS = {
