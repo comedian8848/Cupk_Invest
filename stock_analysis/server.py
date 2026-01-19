@@ -17,6 +17,7 @@ import hashlib
 import time
 from functools import wraps
 from collections import OrderedDict
+import shutil
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -462,6 +463,37 @@ def get_report_details(report_id):
             "type": "stock",
             "images": images
         })
+
+@app.route('/api/reports/<report_id>', methods=['DELETE'])
+@log_request
+def delete_report(report_id):
+    """删除报告"""
+    if '..' in report_id or report_id.startswith('/'):
+        return jsonify({"error": "Invalid report ID"}), 400
+
+    path = os.path.join(WORKING_DIR, report_id)
+
+    if report_id.endswith('.png'):
+        if not os.path.exists(path):
+            return jsonify({"error": "报告不存在"}), 404
+        try:
+            os.remove(path)
+        except Exception as e:
+            print(f"[ERROR] delete_report: {e}")
+            return jsonify({"error": "删除失败"}), 500
+    else:
+        if not os.path.exists(path) or not os.path.isdir(path):
+            return jsonify({"error": "报告不存在"}), 404
+        try:
+            shutil.rmtree(path)
+        except Exception as e:
+            print(f"[ERROR] delete_report: {e}")
+            return jsonify({"error": "删除失败"}), 500
+
+    report_cache.invalidate()
+    summary_cache.invalidate(f"summary_{report_id}")
+    ai_report_cache.invalidate(f"ai_{report_id}")
+    return jsonify({"ok": True})
 
 @app.route('/api/images/<path:filename>', methods=['GET'])
 def serve_image(filename):

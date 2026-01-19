@@ -1,49 +1,106 @@
-# Python 字节码与缓存
+# ==============================================================================
+# 🐍 Python / Backend
+# ==============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# 虚拟环境
+# Virtual Environments
 venv/
+.venv/
 env/
-ENV/
-.venv
+.env/
 
-# IDE 配置
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Jupyter Notebook
+# Jupyter Notebooks
 .ipynb_checkpoints
-*.ipynb
+*.ipynb_checkpoints
 
-# 分析报告输出目录（每次运行生成，不需要版本控制）
-stock_analysis/分析报告_*/
-期货分析_*/
-期货报告_*.png
-stock_analysis/期货报告_*.png
-
-# 数据缓存
-*.pkl
-*.csv
-*.db
-分析报告.txt
-stock_analysis/分析报告.txt
-stock_analysis/analysis_data.json
-analysis_data.json
-
-# 日志文件
+# Logs
 *.log
 
-# 前端构建产物 (Web Dashboard)
+# ==============================================================================
+# ⚛️ Node.js / Frontend (web_dashboard)
+# ==============================================================================
 web_dashboard/node_modules/
+web_dashboard/npm-debug.log*
+web_dashboard/yarn-debug.log*
+web_dashboard/yarn-error.log*
+web_dashboard/pnpm-debug.log*
+web_dashboard/.pnpm-debug.log*
 web_dashboard/dist/
 web_dashboard/.eslintcache
+web_dashboard/.vite/
 
-# 系统文件
+# ==============================================================================
+# 📄 Project Artifacts & Data
+# ==============================================================================
+# Analysis Output Folders
+stock_analysis/分析报告_*/
+stock_analysis/analysis_reports/
+期货分析_*/
+
+# Generated Report Files
+stock_analysis/分析报告.txt
+stock_analysis/analysis_data.json
+分析报告.txt
+analysis_data.json
+*.png
+*.pdf
+*.csv
+*.xlsx
+
+# Cache / Temp Data
+*.pkl
+*.db
+*.sqlite3
+
+# ==============================================================================
+# 🔧 IDE & System
+# ==============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# JetBrains
+.idea/
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+web_dashboard/.env
+web_dashboard/.env.local

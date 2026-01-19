@@ -12,6 +12,7 @@ export const fetchReportDetails = (reportId, config = {}) => api.get(`/reports/$
 export const fetchReportSummary = (reportId, config = {}) => api.get(`/reports/${reportId}/summary`, config)
 export const startAnalysis = (code, config = {}) => api.post('/analyze', { code }, config)
 export const getAnalysisStatus = (taskId, config = {}) => api.get(`/analyze/${taskId}`, config)
+export const deleteReport = (reportId, config = {}) => api.delete(`/reports/${reportId}`, config)
 export const aiAnalyze = (reportId, { force = false, aiConfig = null } = {}, config = {}) => api.post('/ai-analyze', { report_id: reportId, force, ai_config: aiConfig }, config)
 
 export default api

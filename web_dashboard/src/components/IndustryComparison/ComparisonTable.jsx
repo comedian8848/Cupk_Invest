@@ -2,17 +2,10 @@ import React from 'react';
 import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import './styles.css';
 
-const ComparisonTable = ({ stockData, industryData, stockName }) => {
+const ComparisonTable = ({ stockData, industryData, stockName, metrics }) => {
   if (!stockData || !industryData) return null;
 
-  const metrics = [
-    { key: 'roe', label: 'ROE', unit: '%', isHigherBetter: true },
-    { key: 'gross_margin', label: '毛利率', unit: '%', isHigherBetter: true },
-    { key: 'net_margin', label: '净利率', unit: '%', isHigherBetter: true },
-    { key: 'debt_ratio', label: '负债率', unit: '%', isHigherBetter: false },
-    { key: 'pe_ttm', label: 'PE(TTM)', unit: '', isHigherBetter: false },
-    { key: 'dividend_yield', label: '股息率', unit: '%', isHigherBetter: true },
-  ];
+  const activeMetrics = Array.isArray(metrics) && metrics.length > 0 ? metrics : []
 
   const renderDiff = (val1, val2, isHigherBetter) => {
     if (val1 == null || val2 == null) return <Minus size={14} className="text-muted" />;
@@ -22,10 +15,17 @@ const ComparisonTable = ({ stockData, industryData, stockName }) => {
     const colorClass = isBetter ? 'diff-positive' : 'diff-negative';
     const Icon = isBetter ? ArrowUp : ArrowDown;
 
+    const pct = val2 !== 0 ? (diff / val2) * 100 : null;
+
     return (
-      <div className={`flex items-center gap-1 ${colorClass}`}>
+      <div className={`flex items-center gap-2 ${colorClass}`}>
         <Icon size={14} />
-        <span>{Math.abs(diff).toFixed(2)}</span>
+        <div className="diff-stack">
+          <span>{Math.abs(diff).toFixed(2)}</span>
+          <span className="text-xs">
+            {pct == null ? '-' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`}
+          </span>
+        </div>
         <span className="text-xs ml-1">{isBetter ? '优于行业' : '弱于行业'}</span>
       </div>
     );
@@ -40,13 +40,17 @@ const ComparisonTable = ({ stockData, industryData, stockName }) => {
             <th>指标</th>
             <th>{stockName || '当前股票'}</th>
             <th>行业平均</th>
-            <th>差异分析</th>
+            <th>差异值 / 溢价%</th>
+            <th>结论</th>
           </tr>
         </thead>
         <tbody>
-          {metrics.map((metric) => {
+          {activeMetrics.map((metric) => {
             const stockVal = stockData[metric.key];
             const industryVal = industryData[metric.key];
+            const diff = (stockVal != null && industryVal != null) ? (stockVal - industryVal) : null
+            const isBetter = diff == null ? null : (metric.isHigherBetter ? diff > 0 : diff < 0)
+            const conclusion = diff == null ? '数据不足' : (Math.abs(diff) < 0.01 ? '持平' : (isBetter ? '优于行业' : '弱于行业'))
 
             return (
               <tr key={metric.key}>
@@ -54,6 +58,11 @@ const ComparisonTable = ({ stockData, industryData, stockName }) => {
                 <td>{stockVal != null ? `${stockVal.toFixed(2)}${metric.unit}` : '-'}</td>
                 <td>{industryVal != null ? `${industryVal.toFixed(2)}${metric.unit}` : '-'}</td>
                 <td>{renderDiff(stockVal, industryVal, metric.isHigherBetter)}</td>
+                <td>
+                  <span className={`tag ${isBetter == null ? 'muted' : (isBetter ? 'positive' : 'negative')}`}>
+                    {conclusion}
+                  </span>
+                </td>
               </tr>
             );
           })}

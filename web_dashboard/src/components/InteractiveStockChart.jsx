@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 
-const InteractiveStockChart = ({ data, title }) => {
+const InteractiveStockChart = ({ data, title, theme = 'light' }) => {
   const containerRef = useRef(null);
   
   // Data processing
@@ -64,6 +64,11 @@ const InteractiveStockChart = ({ data, title }) => {
   useEffect(() => {
     if (!processedData || !containerRef.current || !window.Plotly) return;
 
+    const styles = getComputedStyle(document.documentElement)
+    const bg = styles.getPropertyValue('--bg-secondary').trim() || '#ffffff'
+    const text = styles.getPropertyValue('--text-primary').trim() || '#1f2937'
+    const grid = styles.getPropertyValue('--border-color').trim() || '#e5e7eb'
+
     const {
       dates, open, high, low, close, volume,
       ma5, ma20, ma60, ma120,
@@ -94,7 +99,7 @@ const InteractiveStockChart = ({ data, title }) => {
         y: bollDn,
         type: 'scatter',
         mode: 'lines',
-        line: { color: 'rgba(100, 100, 100, 0.3)', width: 1, dash: 'dash' },
+        line: { color: theme === 'dark' ? 'rgba(0, 200, 255, 0.85)' : 'rgba(0, 122, 255, 0.8)', width: 1.5, dash: 'dot' },
         name: 'BOLL下轨',
         hoverinfo: 'y+name',
         legendgroup: 'BOLL'
@@ -105,9 +110,9 @@ const InteractiveStockChart = ({ data, title }) => {
         y: bollUp,
         type: 'scatter',
         mode: 'lines',
-        line: { color: 'rgba(100, 100, 100, 0.3)', width: 1, dash: 'dash' },
+        line: { color: theme === 'dark' ? 'rgba(255, 193, 7, 0.85)' : 'rgba(245, 158, 11, 0.85)', width: 1.5, dash: 'dot' },
         fill: 'tonexty', // Fill area between Upper and Lower (Lower must be plotted before Upper)
-        fillcolor: 'rgba(200, 200, 200, 0.1)',
+        fillcolor: theme === 'dark' ? 'rgba(255, 193, 7, 0.12)' : 'rgba(245, 158, 11, 0.15)',
         name: 'BOLL上轨',
         hoverinfo: 'y+name',
         legendgroup: 'BOLL'
@@ -128,7 +133,7 @@ const InteractiveStockChart = ({ data, title }) => {
         y: ma20,
         type: 'scatter',
         mode: 'lines',
-        line: { color: '#2962ff', width: 1 },
+        line: { color: '#4fc3f7', width: 1.5 },
         name: 'MA20',
         hoverinfo: 'y+name'
       },
@@ -167,8 +172,11 @@ const InteractiveStockChart = ({ data, title }) => {
     const layout = {
       title: {
         text: title || '股价走势',
-        font: { size: 16 }
+        font: { size: 16, color: text }
       },
+      paper_bgcolor: bg,
+      plot_bgcolor: bg,
+      font: { color: text },
       dragmode: 'zoom',
       margin: { r: 50, t: 40, b: 40, l: 50 },
       showlegend: true,
@@ -177,6 +185,7 @@ const InteractiveStockChart = ({ data, title }) => {
         autorange: true,
         type: 'date',
         rangeslider: { visible: false },
+        gridcolor: grid,
         rangeselector: {
           buttons: [
             { count: 1, label: '1月', step: 'month', stepmode: 'backward' },
@@ -191,12 +200,14 @@ const InteractiveStockChart = ({ data, title }) => {
         autorange: true,
         domain: [0.3, 1],
         type: 'linear',
-        title: '价格'
+        title: '价格',
+        gridcolor: grid
       },
       yaxis2: {
         domain: [0, 0.2],
         type: 'linear',
-        title: '成交量'
+        title: '成交量',
+        gridcolor: grid
       },
       autosize: true
     };
@@ -215,14 +226,14 @@ const InteractiveStockChart = ({ data, title }) => {
         window.Plotly.purge(containerRef.current);
       }
     };
-  }, [processedData, title]);
+  }, [processedData, title, theme]);
 
   if (!data || data.length === 0) {
     return <div className="text-center text-muted p-4">暂无K线数据</div>;
   }
 
   return (
-    <div className="w-full h-full bg-white rounded-lg shadow-sm p-2">
+    <div className="interactive-chart-container">
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );

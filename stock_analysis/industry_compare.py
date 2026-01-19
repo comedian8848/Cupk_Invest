@@ -10,6 +10,72 @@ import akshare as ak
 import pandas as pd
 from functools import lru_cache
 
+try:
+    import baostock as bs
+    _HAS_BAOSTOCK = True
+except Exception:
+    bs = None
+    _HAS_BAOSTOCK = False
+
+_BS_LOGGED_IN = False
+
+def _bs_login():
+    global _BS_LOGGED_IN
+    if not _HAS_BAOSTOCK or _BS_LOGGED_IN:
+        return _BS_LOGGED_IN
+    try:
+        lg = bs.login()
+        if lg.error_code == '0':
+            _BS_LOGGED_IN = True
+    except Exception:
+        _BS_LOGGED_IN = False
+    return _BS_LOGGED_IN
+
+def _to_bs_code(code):
+    code = str(code).zfill(6)
+    return f"sh.{code}" if code.startswith('6') else f"sz.{code}"
+
+def _safe_float(value):
+    try:
+        if pd.isna(value) or value == '--' or value == '':
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+def _extract_latest_fundamentals(fin_df):
+    if fin_df is None or fin_df.empty:
+        return None
+    try:
+        if '选项' in fin_df.columns:
+            fin_df = fin_df.drop(columns=['选项'])
+        if fin_df['指标'].duplicated().any():
+            fin_df = fin_df.drop_duplicates(subset=['指标'], keep='first')
+
+        fin_df = fin_df.set_index('指标').T.reset_index().rename(columns={'index': '截止日期'})
+        fin_df.columns = [str(c).strip() for c in fin_df.columns]
+        fin_df = fin_df.loc[:, ~fin_df.columns.duplicated()]
+
+        fin_df['截止日期'] = pd.to_datetime(fin_df['截止日期'], format='%Y%m%d', errors='coerce')
+        fin_df = fin_df.dropna(subset=['截止日期']).sort_values('截止日期')
+        if fin_df.empty:
+            return None
+
+        latest = fin_df.iloc[-1]
+        gross_col = next((c for c in fin_df.columns if '毛利率' in c), None)
+        net_margin_col = next((c for c in fin_df.columns if '净利率' in c), None)
+        roe_col = next((c for c in fin_df.columns if '净资产收益率' in c), None)
+        debt_col = next((c for c in fin_df.columns if '资产负债率' in c), None)
+
+        return {
+            'gross_margin': _safe_float(latest[gross_col]) if gross_col else None,
+            'net_margin': _safe_float(latest[net_margin_col]) if net_margin_col else None,
+            'roe': _safe_float(latest[roe_col]) if roe_col else None,
+            'debt_ratio': _safe_float(latest[debt_col]) if debt_col else None,
+        }
+    except Exception:
+        return None
+
 @lru_cache(maxsize=1)
 def get_all_industries():
     """获取所有行业板块列表（缓存）"""
@@ -144,6 +210,95 @@ def get_industry_stats(industry_name):
         
     except Exception as e:
         print(f"⚠ 获取行业统计失败: {e}")
+        return None
+
+@lru_cache(maxsize=16)
+def get_industry_fundamentals_avg(industry_name, limit=12):
+    """
+    获取行业财务指标均值（ROE/毛利率/净利率/负债率）
+    从行业成分股中取前 N 只（按成交额排序）计算均值
+    """
+    try:
+        df = get_industry_comparison(industry_name)
+        if df is None or df.empty:
+            return None
+
+        codes = df['代码'].dropna().astype(str).head(limit).tolist()
+        rows = []
+        for code in codes:
+            try:
+                fin_df = ak.stock_financial_abstract(symbol=code)
+                metrics = _extract_latest_fundamentals(fin_df)
+                if metrics:
+                    rows.append(metrics)
+            except Exception:
+                continue
+
+        if not rows:
+            # Baostock 兜底
+            if _HAS_BAOSTOCK and _bs_login():
+                bs_rows = []
+                codes = df['代码'].dropna().astype(str).head(limit).tolist()
+
+                def iter_quarters(count=6):
+                    from datetime import datetime
+                    now = datetime.now()
+                    q = 3 if now.month >= 9 else (2 if now.month >= 6 else (1 if now.month >= 3 else 4))
+                    y = now.year
+                    for _ in range(count):
+                        yield y, q
+                        q -= 1
+                        if q <= 0:
+                            q = 4
+                            y -= 1
+
+                def bs_latest_value(bs_code, query_fn, fields_candidates):
+                    for y, q in iter_quarters():
+                        rs = query_fn(code=bs_code, year=y, quarter=q)
+                        if rs.error_code != '0':
+                            continue
+                        last_row = None
+                        while rs.next():
+                            last_row = rs.get_row_data()
+                        if last_row is None:
+                            continue
+                        fields = rs.fields
+                        for f in fields_candidates:
+                            if f in fields:
+                                idx = fields.index(f)
+                                return _safe_float(last_row[idx])
+                    return None
+
+                for code in codes:
+                    bs_code = _to_bs_code(code)
+                    row = {
+                        'roe': bs_latest_value(bs_code, bs.query_dupont_data, ['roe', 'dupontROE']),
+                        'net_margin': bs_latest_value(bs_code, bs.query_dupont_data, ['netProfitMargin']),
+                        'gross_margin': bs_latest_value(bs_code, bs.query_profit_data, ['grossProfitRate']),
+                        'debt_ratio': bs_latest_value(bs_code, bs.query_balance_data, ['liabilityToAsset'])
+                    }
+                    if any(v is not None for v in row.values()):
+                        bs_rows.append(row)
+
+                if not bs_rows:
+                    return None
+
+                rows = bs_rows
+            else:
+                return None
+
+        def mean_of(key):
+            vals = [r.get(key) for r in rows if isinstance(r.get(key), (int, float))]
+            return sum(vals) / len(vals) if vals else None
+
+        return {
+            'roe': mean_of('roe'),
+            'gross_margin': mean_of('gross_margin'),
+            'net_margin': mean_of('net_margin'),
+            'debt_ratio': mean_of('debt_ratio')
+        }
+    except Exception as e:
+        print(f"⚠ 获取行业财务均值失败: {e}")
         return None
 
 

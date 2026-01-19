@@ -309,6 +309,7 @@ class StockAnalyzer:
         self.industry = all_data.get('industry')
         self.total_shares = all_data.get('total_shares')
         self.financial_data = all_data.get('financial_abstract')
+        self.financial_indicators = all_data.get('financial_indicators')
         self.balance_sheet = all_data.get('balance_sheet')
         self.income_statement = all_data.get('income_statement')
         self.cash_flow_data = all_data.get('cash_flow')
@@ -316,7 +317,7 @@ class StockAnalyzer:
         self.dividend_data = all_data.get('dividend')
         self.northbound_data = all_data.get('northbound')
         self.shareholder_data = all_data.get('shareholder')
-        self.current_valuation = all_data.get('current_valuation')
+        self.current_valuation = all_data.get('current_valuation') or {}
 
 
 
@@ -799,7 +800,7 @@ class StockAnalyzer:
         # ------------------------------------------------------
         self._log("\n  [2] 估值与增长匹配度 (PEG)")
         
-        pe_ttm = self.current_valuation.get('pe_ttm', 0)
+        pe_ttm = (self.current_valuation or {}).get('pe_ttm', 0)
         if pe_ttm > 0:
             # 计算增长率 G (优先使用3年CAGR)
             g_rate = 0
@@ -828,8 +829,9 @@ class StockAnalyzer:
         # ------------------------------------------------------
         self._log("\n  [2] 估值预期 (安全边际)")
         
-        pe = self.current_valuation.get('pe_ttm', 0)
-        pb = self.current_valuation.get('pb', 0)
+        _val = self.current_valuation or {}
+        pe = _val.get('pe_ttm', 0)
+        pb = _val.get('pb', 0)
         
         # (1) PEG (短期增长率)
         if pe > 0 and len(annual_df) >= 2 and profit_col:
@@ -1198,30 +1200,39 @@ class StockAnalyzer:
         df = self.financial_data
         annual_df = self.annual_df  # 使用缓存
         latest = df.iloc[-1]
+
+        def safe_call(label, func, *args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                self._log(f"  ⚠ {label}失败: {e}")
+                import traceback
+                traceback.print_exc()
+                return None
         
         # 1. 基本面概览
-        self._analyze_fundamentals(df, annual_df)
+        safe_call("基本面分析", self._analyze_fundamentals, df, annual_df)
         
         # 2. 核心竞争力
-        self._analyze_competitiveness(df, latest)
+        safe_call("核心竞争力", self._analyze_competitiveness, df, latest)
 
         # 2.1 同行业对比 (同花顺数据)
-        self._analyze_industry_comparison()
+        safe_call("行业对比", self._analyze_industry_comparison)
         
         # 3. 财务安全与风险
-        self._analyze_risks(df, latest)
+        safe_call("风险分析", self._analyze_risks, df, latest)
         
         # 4. 分红能力
-        self._analyze_dividend()
+        safe_call("分红能力", self._analyze_dividend)
         
         # 5. 估值分析
-        self._analyze_valuation()
+        safe_call("估值分析", self._analyze_valuation)
         
         # 6. 综合评分
-        self._calculate_scores(df, annual_df, latest)
+        safe_call("综合评分", self._calculate_scores, df, annual_df, latest)
         
         # 7. 生成可视化
-        self._plot_company_analysis(annual_df, df)
+        safe_call("公司分析图表", self._plot_company_analysis, annual_df, df)
     
     def _analyze_fundamentals(self, df, annual_df):
         """分析基本面：增长与行业阶段"""
@@ -1560,9 +1571,10 @@ class StockAnalyzer:
             self._log(f"  • 近5年分红次数: {div_count} 次")
             
             # 计算股息率（如果有当前市值）
-            if self.current_valuation.get('total_mv', 0) > 0:
+            _val_div = self.current_valuation or {}
+            if _val_div.get('total_mv', 0) > 0:
                 # 这里简化处理，实际应该计算更精确的股息率
-                mv = self.current_valuation['total_mv']
+                mv = _val_div['total_mv']
                 self._log(f"  • 当前总市值: {self._format_number(mv)}")
                 
             if div_count >= 3:
@@ -1580,11 +1592,12 @@ class StockAnalyzer:
             self._log("  • 无法获取估值数据")
             return
         
-        pe = self.current_valuation.get('pe_ttm', 0)
-        pb = self.current_valuation.get('pb', 0)
-        mv = self.current_valuation.get('total_mv', 0)
+        _val_a = self.current_valuation or {}
+        pe = _val_a.get('pe_ttm', 0)
+        pb = _val_a.get('pb', 0)
+        mv = _val_a.get('total_mv', 0)
         
-        self._log(f"  • 当前股价: ¥{self.current_valuation.get('price', 0):.2f}")
+        self._log(f"  • 当前股价: ¥{_val_a.get('price', 0):.2f}")
         self._log(f"  • 总市值: {self._format_number(mv)}")
         self._log(f"  • PE(TTM): {pe:.1f}")
         self._log(f"  • PB: {pb:.2f}")
@@ -1726,23 +1739,35 @@ class StockAnalyzer:
             else:
                 self._log("\n  ⚠️ 策略表现: 亏损")
                 
-            # 保存回测图表
+            # 保存回测图表 - 使用简单的收益曲线代替backtrader的复杂图表
             try:
-                # 切换到非交互式后端，避免弹出窗口
                 import matplotlib
                 matplotlib.use('Agg')
                 import matplotlib.pyplot as plt
+                plt.ioff()
                 
-                # backtrader plot with iplot=False to prevent popup
-                figs = cerebro.plot(style='candlestick', barup='red', bardown='green', volume=False, iplot=False)
-                if figs and figs[0] and figs[0][0]:
-                    fig = figs[0][0]
-                    fig.set_size_inches(16, 9)
-                    fig.savefig(f"{self.output_dir}/99_回测结果.png", dpi=100)
-                    plt.close(fig)
-                    self._log(f"  ✓ 生成图表: 99_回测结果.png")
-                else:
-                    self._log(f"  ⚠ 回测图表生成失败: 无有效图形对象")
+                # 生成简单的回测结果图表
+                fig, ax = plt.subplots(1, 1, figsize=(14, 6))
+                ax.set_title(f'{self.stock_name} ({self.stock_code}) 回测结果', fontsize=14, fontweight='bold')
+                
+                # 显示关键指标
+                textstr = f'''策略: 双均线交叉 (SMA50/SMA200)
+初始资金: ¥{initial_value:,.2f}
+最终资金: ¥{final_value:,.2f}
+收益率: {pnl_pct:+.2f}%
+夏普比率: {sharpe:.2f}
+最大回撤: {max_dd:.2f}%'''
+                
+                props = dict(boxstyle='round', facecolor='lightblue' if pnl_pct >= 0 else 'lightyellow', alpha=0.8)
+                ax.text(0.5, 0.5, textstr, transform=ax.transAxes, fontsize=16,
+                        verticalalignment='center', horizontalalignment='center', bbox=props,
+                        family='sans-serif')
+                ax.axis('off')
+                
+                plt.tight_layout()
+                fig.savefig(f"{self.output_dir}/99_回测结果.png", dpi=100, facecolor='white')
+                plt.close(fig)
+                self._log(f"  ✓ 生成图表: 99_回测结果.png")
             except Exception as e:
                 self._log(f"  ⚠ 无法生成回测图表: {e}")
 
@@ -1769,19 +1794,34 @@ class StockAnalyzer:
         self._log(f"\n  📅 解读财报期: {report_date}")
         
         # 1. 核心业绩表现
-        self._analyze_performance(df, latest)
+        try:
+            self._analyze_performance(df, latest)
+        except Exception as e:
+            self._log(f"  ⚠ 核心业绩分析失败: {e}")
         
         # 2. 现金流健康度
-        self._analyze_cash_flow(df, latest)
+        try:
+            self._analyze_cash_flow(df, latest)
+        except Exception as e:
+            self._log(f"  ⚠ 现金流分析失败: {e}")
         
         # 3. 资产负债结构
-        self._analyze_balance_structure()
+        try:
+            self._analyze_balance_structure()
+        except Exception as e:
+            self._log(f"  ⚠ 资产负债分析失败: {e}")
         
         # 4. 风险预警
-        self._analyze_warnings(df, latest)
+        try:
+            self._analyze_warnings(df, latest)
+        except Exception as e:
+            self._log(f"  ⚠ 风险预警分析失败: {e}")
         
         # 5. 生成财报可视化
-        self._plot_financial_report(df)
+        try:
+            self._plot_financial_report(df)
+        except Exception as e:
+            self._log(f"  ⚠ 财报图表生成失败: {e}")
     
     def _analyze_performance(self, df, latest):
         """分析核心业绩"""
@@ -3766,7 +3806,7 @@ class StockAnalyzer:
         per_share_value = equity_value / self.total_shares
         
         # 当前股价
-        current_price = self.current_valuation.get('price', 0)
+        current_price = (self.current_valuation or {}).get('price', 0)
         if current_price == 0 and self.stock_kline is not None:
             current_price = self.stock_kline['收盘'].iloc[-1]
         
@@ -3966,7 +4006,7 @@ class StockAnalyzer:
             terminal_growth = 0.0
         
         # 当前股价
-        current_price = self.current_valuation.get('price', 0)
+        current_price = (self.current_valuation or {}).get('price', 0)
         if current_price == 0 and self.stock_kline is not None and len(self.stock_kline) > 0:
             current_price = self.stock_kline['收盘'].iloc[-1]
 
@@ -4930,8 +4970,9 @@ class StockAnalyzer:
             
             # === 子图1: PE/PB历史分位 ===
             ax1 = axes[0, 0]
-            pe = self.current_valuation.get('pe_ttm', 0)
-            pb = self.current_valuation.get('pb', 0)
+            val = self.current_valuation or {}
+            pe = val.get('pe_ttm', 0)
+            pb = val.get('pb', 0)
             
             # 简单的估值区间示意
             categories = ['PE(TTM)', 'PB']
@@ -4968,7 +5009,7 @@ class StockAnalyzer:
             
             # === 子图3: 市值与净利润对比 ===
             ax3 = axes[1, 0]
-            mv = self.current_valuation.get('total_mv', 0) / 1e8
+            mv = val.get('total_mv', 0) / 1e8
             
             fin_df = self.financial_data
             if fin_df is not None:
@@ -5148,15 +5189,16 @@ class StockAnalyzer:
     # ==================== 报告生成 ====================
     def generate_summary(self):
         """生成分析总结 - 客观、有条理、有依据"""
-        
+        avg_score = np.mean(list(self.scores.values()))
         # 生成Dashboard合并图表
-        self._generate_dashboard_charts()
+        try:
+            self._generate_dashboard_charts()
+        except Exception as e:
+            self._log(f"\n⚠️ Dashboard 图表生成失败: {e}")
         
         self._log("\n" + "="*70)
         self._log("  📋 投资分析总结报告")
         self._log("="*70)
-        
-        avg_score = np.mean(list(self.scores.values()))
         
         # ------------------ 第一部分：基本信息 ------------------
         self._log(f"\n{'─'*70}")
@@ -5168,10 +5210,11 @@ class StockAnalyzer:
         self._log(f"  分析日期: {datetime.now().strftime('%Y-%m-%d')}")
         
         # 估值快照
-        pe = self.current_valuation.get('pe_ttm', 0)
-        pb = self.current_valuation.get('pb', 0)
-        price = self.current_valuation.get('price', 0)
-        mv = self.current_valuation.get('total_mv', 0) / 1e8
+        val = self.current_valuation or {}
+        pe = val.get('pe_ttm', 0)
+        pb = val.get('pb', 0)
+        price = val.get('price', 0)
+        mv = val.get('total_mv', 0) / 1e8
         self._log(f"\n  当前股价: ¥{price:.2f}")
         self._log(f"  总市值: {mv:.1f}亿")
         self._log(f"  PE(TTM): {pe:.1f}  |  PB: {pb:.2f}")
@@ -5449,10 +5492,16 @@ class StockAnalyzer:
         self._log(f"\n{'─'*70}")
         self._log(f"  📂 图表已保存至: {self.output_dir}/")
         self._log(f"{'─'*70}")
-        
-        # 保存报告
-        self._save_report()
-        self._save_structured_data(avg_score)
+
+        # 保存报告/结构化数据
+        try:
+            self._save_report()
+        except Exception:
+            pass
+        try:
+            self._save_structured_data(avg_score)
+        except Exception:
+            pass
     
     def _save_report(self):
         """保存文字分析报告"""
@@ -5483,12 +5532,12 @@ class StockAnalyzer:
                 'valuation': self.scores.get('valuation', 0),
             },
             'valuation': {
-                'price': self.current_valuation.get('price', 0),
-                'pe_ttm': self.current_valuation.get('pe_ttm', 0),
-                'pb': self.current_valuation.get('pb', 0),
-                'ps': self.current_valuation.get('ps', 0),
-                'total_mv_yi': round(self.current_valuation.get('total_mv', 0) / 1e8, 2),
-                'source': self.current_valuation.get('source', ''),
+                'price': (self.current_valuation or {}).get('price', 0),
+                'pe_ttm': (self.current_valuation or {}).get('pe_ttm', 0),
+                'pb': (self.current_valuation or {}).get('pb', 0),
+                'ps': (self.current_valuation or {}).get('ps', 0),
+                'total_mv_yi': round((self.current_valuation or {}).get('total_mv', 0) / 1e8, 2),
+                'source': (self.current_valuation or {}).get('source', ''),
             },
             'fundamentals': {},
             'cash_flow': {},
@@ -5523,7 +5572,7 @@ class StockAnalyzer:
                 'roe_pct': round(self._safe_float(latest[roe_col]), 2) if roe_col else None,
                 'debt_ratio_pct': round(self._safe_float(latest[debt_col]), 2) if debt_col else None,
             }
-            
+
             # 年度趋势数据
             annual_df = self.financial_data[self.financial_data['截止日期'].dt.month == 12].tail(6)
             annual_trend = []
@@ -5536,6 +5585,19 @@ class StockAnalyzer:
                     'roe_pct': round(self._safe_float(row[roe_col]), 2) if roe_col else None,
                 })
             data['annual_trend'] = annual_trend
+
+        # 兜底：使用财务指标接口/baostock
+        if isinstance(getattr(self, 'financial_indicators', None), dict):
+            fi = self.financial_indicators
+            data['fundamentals'] = data.get('fundamentals', {})
+            if data['fundamentals'].get('gross_margin_pct') is None and fi.get('gross_margin_pct') is not None:
+                data['fundamentals']['gross_margin_pct'] = round(self._safe_float(fi.get('gross_margin_pct')), 2)
+            if data['fundamentals'].get('net_margin_pct') is None and fi.get('net_margin_pct') is not None:
+                data['fundamentals']['net_margin_pct'] = round(self._safe_float(fi.get('net_margin_pct')), 2)
+            if data['fundamentals'].get('roe_pct') is None and fi.get('roe_pct') is not None:
+                data['fundamentals']['roe_pct'] = round(self._safe_float(fi.get('roe_pct')), 2)
+            if data['fundamentals'].get('debt_ratio_pct') is None and fi.get('debt_ratio_pct') is not None:
+                data['fundamentals']['debt_ratio_pct'] = round(self._safe_float(fi.get('debt_ratio_pct')), 2)
         
         # 现金流数据
         if self.cash_flow_data is not None and len(self.cash_flow_data) > 0:
@@ -5673,7 +5735,46 @@ class StockAnalyzer:
                     'pb': round(row.get('PB', 0), 2) if row.get('PB') else None,
                     'market_cap': round(row.get('总市值', 0) / 1e8, 2) if row.get('总市值') else None,
                 })
-            data['industry_comparison'] = industry_comp
+
+            # 行业均值：PE/PB + 财务指标
+            industry_avg = {}
+            try:
+                stats = industry_compare.get_industry_stats(self.industry)
+                if stats:
+                    industry_avg['pe_ttm'] = stats.get('PE中位数') or stats.get('PE平均')
+                    industry_avg['pb'] = stats.get('PB中位数') or stats.get('PB平均')
+            except Exception:
+                pass
+
+            try:
+                fundamentals_avg = industry_compare.get_industry_fundamentals_avg(self.industry, limit=12)
+                if fundamentals_avg:
+                    industry_avg.update({
+                        'roe': fundamentals_avg.get('roe'),
+                        'gross_margin': fundamentals_avg.get('gross_margin'),
+                        'net_margin': fundamentals_avg.get('net_margin'),
+                        'debt_ratio': fundamentals_avg.get('debt_ratio')
+                    })
+            except Exception:
+                pass
+
+            industry_avg['dividend_yield'] = None
+
+            stock_data_for_comp = {
+                'roe': data.get('fundamentals', {}).get('roe_pct'),
+                'gross_margin': data.get('fundamentals', {}).get('gross_margin_pct'),
+                'net_margin': data.get('fundamentals', {}).get('net_margin_pct'),
+                'debt_ratio': data.get('fundamentals', {}).get('debt_ratio_pct'),
+                'pe_ttm': data.get('valuation', {}).get('pe_ttm'),
+                'pb': data.get('valuation', {}).get('pb'),
+                'dividend_yield': data.get('valuation', {}).get('dividend_yield'),
+            }
+
+            data['industry_comparison'] = {
+                'avg_data': industry_avg,
+                'stock_data': stock_data_for_comp,
+                'peers': industry_comp
+            }
         
         # 分红数据
         if self.dividend_data is not None and len(self.dividend_data) > 0:
@@ -5706,6 +5807,30 @@ class StockAnalyzer:
                     data['valuation'][key] = self.report_data['valuation'][key]
         
         # 保存JSON
+        # 估值兜底：根据净利润与净资产估算 PE/PB
+        try:
+            price = data['valuation'].get('price', 0) or 0
+            total_shares = self.total_shares or 0
+            market_cap = price * total_shares if price > 0 and total_shares > 0 else 0
+
+            if data['valuation'].get('total_mv_yi', 0) == 0 and market_cap > 0:
+                data['valuation']['total_mv_yi'] = round(market_cap / 1e8, 2)
+
+            pe = data['valuation'].get('pe_ttm', 0) or 0
+            pb = data['valuation'].get('pb', 0) or 0
+
+            net_profit_yi = data.get('fundamentals', {}).get('net_profit_yi')
+            if pe == 0 and market_cap > 0 and net_profit_yi and net_profit_yi > 0:
+                pe = market_cap / (net_profit_yi * 1e8)
+                data['valuation']['pe_ttm'] = round(pe, 2)
+
+            equity_yi = data.get('balance_sheet', {}).get('equity_yi')
+            if pb == 0 and market_cap > 0 and equity_yi and equity_yi > 0:
+                pb = market_cap / (equity_yi * 1e8)
+                data['valuation']['pb'] = round(pb, 2)
+        except Exception:
+            pass
+
         json_path = f"{self.output_dir}/analysis_data.json"
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2, default=str)
@@ -6154,20 +6279,20 @@ def main():
             analyzer = StockAnalyzer(code)
             analyzer.fetch_data()
             
+            def safe_step(label, func):
+                try:
+                    func()
+                except Exception as e:
+                    print(f"\n⚠️ {label} 阶段失败: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
             # 分析阶段
-            # 1. 增量分析
-            analyzer.analyze_growth_momentum()
-            
-            # 2. 公司深度分析
-            analyzer.analyze_company()
-            
-            # 3. 财报解读
-            analyzer.analyze_financial_report()
-            
-            # 4. 回测 (可选，耗时较长)
-            analyzer.run_backtest()
-            
-            analyzer.generate_summary()
+            safe_step("增量分析", analyzer.analyze_growth_momentum)
+            safe_step("公司深度分析", analyzer.analyze_company)
+            safe_step("财报解读", analyzer.analyze_financial_report)
+            safe_step("回测", analyzer.run_backtest)
+            safe_step("汇总输出", analyzer.generate_summary)
         except Exception as e:
             print(f"\\n❌ A股分析出错: {e}")
             import traceback; traceback.print_exc()

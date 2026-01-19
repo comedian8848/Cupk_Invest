@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
 import axios from 'axios'
-import { BarChart3, Activity, DollarSign, TrendingUp, FileText, Image as ImageIcon, ArrowLeft, RefreshCw, Cpu, Box, Layers, AlertTriangle, Play, Loader, CheckCircle, XCircle, LayoutGrid, Maximize2, LineChart, PieChart, BarChart2, TrendingDown, AlertCircle, MousePointer2, Bot, Settings } from 'lucide-react'
+import { BarChart3, Activity, DollarSign, TrendingUp, FileText, Image as ImageIcon, ArrowLeft, RefreshCw, Cpu, Box, Layers, AlertTriangle, Play, Loader, CheckCircle, XCircle, LayoutGrid, Maximize2, LineChart, PieChart, BarChart2, TrendingDown, AlertCircle, MousePointer2, Bot, Settings, Sun, Moon } from 'lucide-react'
 import { LineChart as ReLineChart, Line, BarChart as ReBarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ComposedChart } from 'recharts'
 import InteractiveStockChart from './components/InteractiveStockChart'
 import AnalysisRadar from './components/AnalysisRadar'
 import IndustryPeersTable from './components/IndustryPeersTable'
 import IndustryComparison from './components/IndustryComparison'
 import AIReport from './components/AIReport'
-import { fetchReports as apiFetchReports, fetchReportDetails as apiFetchReportDetails, fetchReportSummary as apiFetchReportSummary, startAnalysis as apiStartAnalysis, getAnalysisStatus as apiGetAnalysisStatus } from './api'
+import { fetchReports as apiFetchReports, fetchReportDetails as apiFetchReportDetails, fetchReportSummary as apiFetchReportSummary, startAnalysis as apiStartAnalysis, getAnalysisStatus as apiGetAnalysisStatus, deleteReport as apiDeleteReport } from './api'
 
 // ==================== 性能优化工具 ====================
 // 配置 axios 默认超时和重试
@@ -57,6 +57,8 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showAnalyzer, setShowAnalyzer] = useState(false)
+  const [theme, setTheme] = useState('light')
+  const [quickUpdate, setQuickUpdate] = useState({ running: false, message: '' })
   const [showSettings, setShowSettings] = useState(false)
   const [aiSettings, setAiSettings] = useState({
     apiKey: '',
@@ -69,6 +71,17 @@ function App() {
 
   useEffect(() => {
     fetchReports()
+    try {
+      const savedTheme = localStorage.getItem('theme')
+      if (savedTheme) {
+        setTheme(savedTheme)
+        document.documentElement.dataset.theme = savedTheme
+      } else {
+        document.documentElement.dataset.theme = 'light'
+      }
+    } catch (e) {
+      document.documentElement.dataset.theme = 'light'
+    }
     try {
       const raw = localStorage.getItem('ai_settings')
       if (raw) {
@@ -92,6 +105,13 @@ function App() {
       abortControllerRef.current?.abort()
     }
   }, [])
+
+  const toggleTheme = useCallback(() => {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+    localStorage.setItem('theme', next)
+  }, [theme])
 
   const saveAiSettings = useCallback(() => {
     const payload = {
@@ -190,6 +210,44 @@ function App() {
     }, 1500)
   }, [fetchReports])
 
+  const runLatestAnalysis = useCallback(async (code) => {
+    if (!code || quickUpdate.running) return
+    setQuickUpdate({ running: true, message: '正在启动分析...' })
+    try {
+      const res = await apiStartAnalysis(code)
+      const taskId = res.data?.task_id
+      if (!taskId) throw new Error('任务创建失败')
+
+      let done = false
+      while (!done) {
+        await new Promise((r) => setTimeout(r, 1500))
+        const statusRes = await apiGetAnalysisStatus(taskId, { timeout: 10000 })
+        const status = statusRes.data
+        setQuickUpdate({ running: true, message: status?.message || '分析中...' })
+
+        if (status?.status === 'completed') {
+          done = true
+          cache.clear()
+          const listRes = await apiFetchReports()
+          const list = Array.isArray(listRes.data) ? listRes.data : []
+          const latest = list.find((r) => r.code === code)
+          if (latest) {
+            loadReportDetails(latest)
+          } else {
+            fetchReports(true)
+          }
+        } else if (status?.status === 'error') {
+          done = true
+          throw new Error(status?.message || '分析失败')
+        }
+      }
+    } catch (err) {
+      setError(`更新分析失败: ${err.message}`)
+    } finally {
+      setQuickUpdate({ running: false, message: '' })
+    }
+  }, [fetchReports, loadReportDetails, quickUpdate.running])
+
   return (
     <div className="geek-container">
       {/* Header */}
@@ -217,11 +275,15 @@ function App() {
           </button>
           <button onClick={() => setShowSettings(true)} className="geek-btn" style={{background: 'var(--bg-tertiary)'}}>
             <Settings size={14} />
-            <span className="hidden-md">设置</span>
+            <span className="md:hidden">设置</span>
+          </button>
+          <button onClick={toggleTheme} className="geek-btn" style={{background: 'var(--bg-tertiary)'}}>
+            {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+            <span className="md:hidden">{theme === 'light' ? '暗色' : '亮色'}</span>
           </button>
           <button onClick={fetchReports} className="geek-btn" disabled={loading} style={{background: 'var(--bg-tertiary)'}}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span className="hidden-md">刷新</span>
+            <span className="md:hidden">刷新</span>
           </button>
         </div>
       </header>
@@ -301,7 +363,25 @@ function App() {
         {showAnalyzer ? (
           <StockAnalyzer onComplete={handleAnalysisComplete} onBack={() => setShowAnalyzer(false)} />
         ) : selectedReport ? (
-          <ReportDetail report={selectedReport} onBack={() => setSelectedReport(null)} />
+          <ReportDetail 
+            report={selectedReport} 
+            onBack={() => setSelectedReport(null)} 
+            theme={theme}
+            onDelete={async (report) => {
+              if (!report?.id) return
+              if (!window.confirm('确认删除该分析报告？此操作不可恢复。')) return
+              try {
+                await apiDeleteReport(report.id)
+                cache.clear()
+                setSelectedReport(null)
+                fetchReports(true)
+              } catch (err) {
+                setError(`删除失败: ${err.response?.data?.error || err.message}`)
+              }
+            }}
+            onUpdateLatest={(report) => runLatestAnalysis(report?.code)}
+            quickUpdate={quickUpdate}
+          />
         ) : (
           <div className="animate-in">
             {/* Report Grid */}
@@ -542,9 +622,10 @@ function StockAnalyzer({ onComplete, onBack }) {
   )
 }
 
-function ReportDetail({ report, onBack }) {
+function ReportDetail({ report, onBack, onDelete, onUpdateLatest, quickUpdate, theme }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [industryBaseline, setIndustryBaseline] = useState('mean')
+  const [lightboxIndex, setLightboxIndex] = useState(null)
   
   const images = report.images || []
   const categories = {
@@ -564,6 +645,7 @@ function ReportDetail({ report, onBack }) {
   const currentImages = (report.type === 'stock' && categories[activeTab]?.length > 0) 
     ? categories[activeTab] 
     : (activeTab === 'all' ? images : [])
+  const displayImages = currentImages.length > 0 ? currentImages : images
 
   const TABS = [
     { id: 'ai', label: 'AI分析', icon: <Bot size={14} /> },
@@ -579,7 +661,13 @@ function ReportDetail({ report, onBack }) {
 
   const summary = report.summaryData || {}
   const fullData = summary.full_data || {}
+  const growthMomentum = fullData.growth_momentum || {}
   const rawComp = fullData.industry_comparison
+  const peerList = useMemo(() => {
+    if (rawComp && rawComp.peers) return rawComp.peers
+    if (Array.isArray(rawComp)) return rawComp
+    return []
+  }, [rawComp])
   
   // Helper to prepare industry comparison data
   const currentStockData = useMemo(() => ({
@@ -593,7 +681,7 @@ function ReportDetail({ report, onBack }) {
   }), [summary])
 
   const baselineOptions = useMemo(() => {
-    if (rawComp && rawComp.stock_data && rawComp.avg_data) {
+    if (rawComp && rawComp.avg_data) {
       return [{ id: 'report_avg', label: '报告行业均值' }]
     }
     if (Array.isArray(rawComp)) {
@@ -613,7 +701,7 @@ function ReportDetail({ report, onBack }) {
   }, [baselineOptions, industryBaseline])
 
   const industryData = useMemo(() => {
-    if (rawComp && rawComp.stock_data && rawComp.avg_data) {
+    if (rawComp && rawComp.avg_data) {
       return industryBaseline === 'report_avg' ? rawComp.avg_data : rawComp.avg_data
     }
     if (!Array.isArray(rawComp) || rawComp.length === 0) return null
@@ -659,15 +747,93 @@ function ReportDetail({ report, onBack }) {
     }
   }, [rawComp, industryBaseline])
 
+  const expectation = growthMomentum?.expectation || '未知'
+  const growthSummary = growthMomentum?.summary || '暂无'
+  const growthQuality = growthMomentum?.growth_quality || '暂无'
+  const qualityScore = growthMomentum?.quality_score
+  const qualityNotes = Array.isArray(growthMomentum?.quality_notes) ? growthMomentum.quality_notes : []
+  const signals = growthMomentum?.signals || {}
+  const positiveSignals = Array.isArray(signals.positive) ? signals.positive : []
+  const negativeSignals = Array.isArray(signals.negative) ? signals.negative : []
+  const expectationMeta = (() => {
+    if (expectation === '积极') return { cls: 'positive', label: '🟢 积极' }
+    if (expectation === '中性') return { cls: 'neutral', label: '🟡 中性' }
+    if (expectation === '谨慎') return { cls: 'negative', label: '🔴 谨慎' }
+    return { cls: 'muted', label: '—' }
+  })()
+
   const stockData = currentStockData
+
+  const openLightbox = useCallback((idx) => {
+    if (!displayImages.length) return
+    setLightboxIndex(idx)
+  }, [displayImages.length])
+
+  const closeLightbox = useCallback(() => setLightboxIndex(null), [])
+
+  const showPrev = useCallback(() => {
+    if (!displayImages.length) return
+    setLightboxIndex((prev) => {
+      if (prev === null) return 0
+      return (prev - 1 + displayImages.length) % displayImages.length
+    })
+  }, [displayImages.length])
+
+  const showNext = useCallback(() => {
+    if (!displayImages.length) return
+    setLightboxIndex((prev) => {
+      if (prev === null) return 0
+      return (prev + 1) % displayImages.length
+    })
+  }, [displayImages.length])
+
+  useEffect(() => {
+    if (lightboxIndex === null) return
+    const handleKey = (e) => {
+      if (e.key === 'Escape') closeLightbox()
+      if (e.key === 'ArrowLeft') showPrev()
+      if (e.key === 'ArrowRight') showNext()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [lightboxIndex, closeLightbox, showPrev, showNext])
 
   return (
     <div className="animate-in">
       {/* Back Button */}
-      <button onClick={onBack} className="geek-btn mb-4" style={{background: 'var(--bg-tertiary)'}}>
-        <ArrowLeft size={14} />
-        <span>返回列表</span>
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={onBack} className="geek-btn" style={{background: 'var(--bg-tertiary)'}}>
+          <ArrowLeft size={14} />
+          <span>返回列表</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onUpdateLatest?.(report)}
+            className="geek-btn"
+            style={{background: 'var(--accent-primary)'}}
+            disabled={quickUpdate?.running}
+            title="按最新时间重新分析"
+          >
+            <RefreshCw size={14} className={quickUpdate?.running ? 'animate-spin' : ''} />
+            <span>更新分析</span>
+          </button>
+          <button
+            onClick={() => onDelete?.(report)}
+            className="geek-btn"
+            style={{background: 'var(--bg-tertiary)'}}
+          >
+            <XCircle size={14} />
+            <span>删除</span>
+          </button>
+        </div>
+      </div>
+
+      {quickUpdate?.running && (
+        <div className="alert alert-info mb-4">
+          <Loader size={16} className="animate-spin" />
+          <span>{quickUpdate.message || '正在更新分析...'}</span>
+        </div>
+      )}
       
       {/* Header Panel */}
       <div className="info-panel mb-6">
@@ -772,11 +938,11 @@ function ReportDetail({ report, onBack }) {
               <div className="chart-grid">
                 {report.type === 'futures' ? (
                   report.images.map((img, idx) => (
-                    <ImageCard key={idx} src={img} fullWidth />
+                    <ImageCard key={idx} src={img} fullWidth onOpen={() => openLightbox(idx)} />
                   ))
                 ) : (
                   categories.overview.map((img, idx) => (
-                    <ImageCard key={idx} src={img} />
+                    <ImageCard key={idx} src={img} onOpen={() => openLightbox(idx)} />
                   ))
                 )}
               </div>
@@ -785,50 +951,109 @@ function ReportDetail({ report, onBack }) {
         </>
       )}
 
-      {activeTab === 'interactive' && fullData && (
+      {activeTab === 'interactive' && (
         <div className="flex flex-col gap-6 mb-8">
-          {/* 1. 交互式K线图 */}
-          <div className="info-panel">
-             <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2">
-                <Activity size={18} style={{color: 'var(--accent-primary)'}} />
-                交互式价格趋势 (Zoom/Pan)
-             </h3>
-             <div style={{ height: 500 }}>
-               <InteractiveStockChart data={fullData.kline_history} title={`${summary.stock_name} - 股价走势`} />
-             </div>
-             <div className="text-xs text-muted mt-2 text-center">
-               支持鼠标滚轮缩放、拖拽平移、框选放大
-             </div>
-          </div>
+          {fullData && Object.keys(fullData).length > 0 ? (
+            <>
+              {/* 1. 交互式K线图 */}
+              <div className="info-panel">
+                 <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2">
+                    <Activity size={18} style={{color: 'var(--accent-primary)'}} />
+                    交互式价格趋势 (Zoom/Pan)
+                 </h3>
+                 <div style={{ height: 500 }}>
+                   <InteractiveStockChart data={fullData.kline_history} title={`${summary.stock_name} - 股价走势`} theme={theme} />
+                 </div>
+                 <div className="text-xs text-muted mt-2 text-center">
+                   支持鼠标滚轮缩放、拖拽平移、框选放大
+                 </div>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* 2. 能力雷达图 */}
-             <div className="info-panel">
-               <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2">
-                  <Activity size={18} style={{color: 'var(--color-up)'}} />
-                  五维能力雷达
-               </h3>
-               <div style={{ height: 350 }}>
-                 <AnalysisRadar scores={fullData.scores} />
-               </div>
-             </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* 2. 能力雷达图 */}
+                 <div className="info-panel">
+                   <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2">
+                      <Activity size={18} style={{color: 'var(--color-up)'}} />
+                      五维能力雷达
+                   </h3>
+                   <div style={{ height: 350 }}>
+                     <AnalysisRadar scores={fullData.scores} theme={theme} />
+                   </div>
+                   <div className="growth-eval-card" style={{ marginTop: 16 }}>
+                     <div className="growth-eval-header">
+                       <h3 className="text-base font-bold text-primary">增量评价</h3>
+                       <span className={`growth-tag ${expectationMeta.cls}`}>{expectationMeta.label}</span>
+                     </div>
+                     <div className="growth-eval-grid">
+                       <div className="growth-eval-item">
+                         <span className="label">增长类型</span>
+                         <span className="value">{growthSummary}</span>
+                       </div>
+                       <div className="growth-eval-item">
+                         <span className="label">增长质量</span>
+                         <span className="value">{growthQuality}</span>
+                       </div>
+                       <div className="growth-eval-item">
+                         <span className="label">质量评分</span>
+                         <span className="value">{qualityScore != null ? `${qualityScore}/80` : '—'}</span>
+                       </div>
+                     </div>
+                     {qualityNotes.length > 0 && (
+                       <div className="growth-note-row">
+                         {qualityNotes.map((n, idx) => (
+                           <span key={`${n}-${idx}`} className="growth-tag muted">{n}</span>
+                         ))}
+                       </div>
+                     )}
+                     {(positiveSignals.length > 0 || negativeSignals.length > 0) && (
+                       <div className="growth-signal-grid">
+                         <div className="growth-signal-block">
+                           <div className="growth-signal-title">积极信号</div>
+                           <ul>
+                             {positiveSignals.length > 0 ? positiveSignals.map((s, i) => (
+                               <li key={`p-${i}`}>+ {s}</li>
+                             )) : <li className="muted">暂无</li>}
+                           </ul>
+                         </div>
+                         <div className="growth-signal-block">
+                           <div className="growth-signal-title">风险信号</div>
+                           <ul>
+                             {negativeSignals.length > 0 ? negativeSignals.map((s, i) => (
+                               <li key={`n-${i}`}>- {s}</li>
+                             )) : <li className="muted">暂无</li>}
+                           </ul>
+                         </div>
+                       </div>
+                     )}
+                   </div>
+                 </div>
 
-             {/* 3. 同业对比表格 */}
-             <div className="info-panel">
-               <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2">
-                  <Layers size={18} style={{color: 'var(--color-warning)'}} />
-                  同行业对比
-               </h3>
-               <IndustryComparison 
-                  stockData={stockData} 
-                  industryData={industryData}
-                  stockName={summary.stock_name}
-                  baseline={industryBaseline}
-                  baselineOptions={baselineOptions}
-                  onBaselineChange={setIndustryBaseline}
-               />
-             </div>
-          </div>
+                 {/* 3. 同业对比表格 */}
+                 <div className="info-panel">
+                   <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2">
+                      <Layers size={18} style={{color: 'var(--color-warning)'}} />
+                      同行业对比
+                   </h3>
+                   <IndustryComparison 
+                      stockData={stockData} 
+                      industryData={industryData}
+                      peers={peerList}
+                      stockName={summary.stock_name}
+                     growthMomentum={fullData.growth_momentum}
+                      baseline={industryBaseline}
+                      baselineOptions={baselineOptions}
+                      onBaselineChange={setIndustryBaseline}
+                   />
+                 </div>
+              </div>
+            </>
+          ) : (
+            <div className="info-panel mb-6 text-center py-8">
+              <AlertCircle size={32} className="mx-auto mb-2 text-muted" />
+              <p className="text-secondary">暂无交互分析数据</p>
+              <p className="text-xs text-muted mt-1">可能是摘要数据未加载或数据源暂不可用</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -845,12 +1070,12 @@ function ReportDetail({ report, onBack }) {
         <div className="chart-grid">
           {report.type === 'futures' ? (
             report.images.map((img, idx) => (
-              <ImageCard key={idx} src={img} fullWidth />
+              <ImageCard key={idx} src={img} fullWidth onOpen={() => openLightbox(idx)} />
             ))
           ) : (
             currentImages.length > 0 ? (
               currentImages.map((img, idx) => (
-                <ImageCard key={idx} src={img} />
+                <ImageCard key={idx} src={img} onOpen={() => openLightbox(idx)} />
               ))
             ) : (
               <div className="empty-state col-span-full">
@@ -859,6 +1084,20 @@ function ReportDetail({ report, onBack }) {
               </div>
             )
           )}
+        </div>
+      )}
+
+      {lightboxIndex !== null && displayImages[lightboxIndex] && (
+        <div className="lightbox-overlay" onClick={closeLightbox}>
+          <button className="lightbox-close" onClick={closeLightbox}>✕</button>
+          <button className="lightbox-nav left" onClick={(e) => { e.stopPropagation(); showPrev(); }}>‹</button>
+          <img 
+            src={`http://localhost:5001${displayImages[lightboxIndex]}`}
+            alt="chart"
+            className="lightbox-image"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button className="lightbox-nav right" onClick={(e) => { e.stopPropagation(); showNext(); }}>›</button>
         </div>
       )}
     </div>
@@ -1441,8 +1680,7 @@ function KeyInsightItem({ label, value }) {
 }
 
 // 优化的图片卡片组件 - 带懒加载、错误处理和缓存
-const ImageCard = memo(function ImageCard({ src, fullWidth = false }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+const ImageCard = memo(function ImageCard({ src, fullWidth = false, onOpen }) {
   const [imageStatus, setImageStatus] = useState('loading') // loading | loaded | error
   const [retryCount, setRetryCount] = useState(0)
   
@@ -1470,23 +1708,7 @@ const ImageCard = memo(function ImageCard({ src, fullWidth = false }) {
     setImageStatus('loading')
   }, [])
   
-  const toggleExpand = useCallback(() => {
-    setIsExpanded(prev => !prev)
-  }, [])
-  
-  // ESC 键关闭灯箱
-  useEffect(() => {
-    if (!isExpanded) return
-    
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setIsExpanded(false)
-      }
-    }
-    
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isExpanded])
+
   
   return (
     <>
@@ -1497,7 +1719,7 @@ const ImageCard = memo(function ImageCard({ src, fullWidth = false }) {
         </div>
         <div 
           className="chart-card-body cursor-pointer" 
-          onClick={imageStatus === 'loaded' ? toggleExpand : undefined}
+          onClick={imageStatus === 'loaded' ? onOpen : undefined}
           style={{ minHeight: 200 }}
         >
           {imageStatus === 'loading' && (
@@ -1566,20 +1788,6 @@ const ImageCard = memo(function ImageCard({ src, fullWidth = false }) {
         </div>
       </div>
 
-      {/* Lightbox - 性能优化：使用 Portal 可能更好，但这里保持简单 */}
-      {isExpanded && (
-        <div className="lightbox-overlay" onClick={toggleExpand}>
-          <button className="lightbox-close" onClick={toggleExpand}>
-            ✕
-          </button>
-          <img 
-            src={imageUrl}
-            alt={fileName}
-            className="lightbox-image"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
     </>
   )
 })
