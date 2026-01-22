@@ -4,7 +4,23 @@ const API_BASE = import.meta.env?.VITE_API_BASE || 'http://localhost:5001/api'
 
 export const api = axios.create({
   baseURL: API_BASE,
-  timeout: 30000
+  timeout: 30000,
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  },
+  transformResponse: [(data) => {
+    // 确保响应被正确解析为JSON
+    if (typeof data === 'string') {
+      try {
+        return JSON.parse(data)
+      } catch (e) {
+        console.error('[API] Failed to parse JSON:', e)
+        return data
+      }
+    }
+    return data
+  }]
 })
 
 export const fetchReports = (config = {}) => api.get('/reports', config)

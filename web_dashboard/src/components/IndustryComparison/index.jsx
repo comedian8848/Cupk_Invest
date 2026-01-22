@@ -6,8 +6,16 @@ import './styles.css';
 const IndustryComparison = ({ stockData, industryData, stockName, baseline, baselineOptions = [], onBaselineChange, peers = [], growthMomentum = {} }) => {
   if (!stockData || !industryData) {
     return (
-      <div className="p-4 text-center text-muted">
-        暂无行业对比数据
+      <div className="p-4 text-center" style={{background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)'}}>
+        <div style={{color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px'}}>
+          📊 暂无行业对比数据
+        </div>
+        <div style={{color: 'var(--text-muted)', fontSize: '12px'}}>
+          该股票的行业对比数据可能暂未生成或获取失败
+        </div>
+        <div style={{color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px'}}>
+          建议：点击"更新分析"重新生成报告
+        </div>
       </div>
     );
   }

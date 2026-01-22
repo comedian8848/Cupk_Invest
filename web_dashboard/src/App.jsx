@@ -112,6 +112,11 @@ function App() {
     document.documentElement.dataset.theme = next
     localStorage.setItem('theme', next)
   }, [theme])
+  
+  const clearAllCaches = useCallback(() => {
+    cache.clear()
+    console.log('[DEBUG] All caches cleared')
+  }, [])
 
   const saveAiSettings = useCallback(() => {
     const payload = {
@@ -166,12 +171,17 @@ function App() {
     const cacheKey = `report_${report.id}`
     const cached = getCached(cacheKey)
     if (cached) {
+      console.log('[DEBUG] Using cached report:', {
+        reportId: report.id,
+        cachedHasFullData: !!cached.summaryData?.full_data
+      })
       setSelectedReport(cached)
       setShowAnalyzer(false)
       return
     }
     
     setLoading(true)
+    console.log('[DEBUG] Loading fresh report data for:', report.id)
     try {
       const [detailsRes, summaryRes] = await Promise.all([
         apiFetchReportDetails(report.id),
@@ -180,11 +190,39 @@ function App() {
           : Promise.resolve({data: null})
       ])
       
+      // 确保 summaryData 是对象，如果是字符串则解析
+      let summaryData = summaryRes.data
+      if (typeof summaryData === 'string') {
+        try {
+          summaryData = JSON.parse(summaryData)
+          console.log('[DEBUG] Parsed summaryData from string')
+        } catch (e) {
+          console.error('[DEBUG] Failed to parse summaryData:', e)
+          summaryData = null
+        }
+      }
+      
       const fullReport = {
         ...report,
         ...detailsRes.data,
-        summaryData: summaryRes.data
+        summaryData: summaryData
       }
+      
+      console.log('[DEBUG] loadReportDetails:', {
+        reportId: report.id,
+        hasImages: !!fullReport.images,
+        imagesCount: fullReport.images?.length,
+        hasSummaryData: !!fullReport.summaryData,
+        summaryDataType: typeof fullReport.summaryData,
+        summaryDataKeys: fullReport.summaryData && typeof fullReport.summaryData === 'object' ? Object.keys(fullReport.summaryData) : [],
+        hasFullData: !!fullReport.summaryData?.full_data,
+        fullDataKeys: fullReport.summaryData?.full_data ? Object.keys(fullReport.summaryData.full_data) : [],
+        hasIndustryComparison: !!(fullReport.summaryData?.full_data?.industry_comparison),
+        industryComparisonType: typeof fullReport.summaryData?.full_data?.industry_comparison,
+        // 打印实际的 industry_comparison 数据（前100个字符）
+        industryComparisonSample: fullReport.summaryData?.full_data?.industry_comparison ? 
+          JSON.stringify(fullReport.summaryData.full_data.industry_comparison).substring(0, 100) : 'N/A'
+      })
       
       setSelectedReport(fullReport)
       setCache(cacheKey, fullReport)
@@ -272,6 +310,10 @@ function App() {
           >
             <Play size={14} />
             <span>新建分析</span>
+          </button>
+          <button onClick={clearAllCaches} className="geek-btn" style={{background: 'var(--bg-tertiary)'}} title="清除缓存">
+            <RefreshCw size={14} />
+            <span className="md:inline hidden">清除缓存</span>
           </button>
           <button onClick={() => setShowSettings(true)} className="geek-btn" style={{background: 'var(--bg-tertiary)'}}>
             <Settings size={14} />
@@ -662,7 +704,31 @@ function ReportDetail({ report, onBack, onDelete, onUpdateLatest, quickUpdate, t
   const summary = report.summaryData || {}
   const fullData = summary.full_data || {}
   const growthMomentum = fullData.growth_momentum || {}
-  const rawComp = fullData.industry_comparison
+  
+  const rawComp = useMemo(() => {
+    const ic = fullData.industry_comparison
+    console.log('[DEBUG] rawComp computed:', {
+      hasIndustryComparison: !!ic,
+      icType: Array.isArray(ic) ? 'array' : typeof ic,
+      icKeys: ic && typeof ic === 'object' ? Object.keys(ic) : []
+    })
+    return ic
+  }, [fullData])
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[DEBUG] ReportDetail render:', {
+      reportId: report.id,
+      hasSummaryData: !!report.summaryData,
+      hasFullData: !!fullData && Object.keys(fullData).length > 0,
+      fullDataKeys: Object.keys(fullData),
+      hasRawComp: !!rawComp,
+      rawCompKeys: rawComp ? Object.keys(rawComp) : [],
+      hasImages: !!report.images,
+      imagesCount: report.images?.length
+    })
+  }, [report.id, fullData, rawComp])
+  
   const peerList = useMemo(() => {
     if (rawComp && rawComp.peers) return rawComp.peers
     if (Array.isArray(rawComp)) return rawComp
@@ -701,10 +767,22 @@ function ReportDetail({ report, onBack, onDelete, onUpdateLatest, quickUpdate, t
   }, [baselineOptions, industryBaseline])
 
   const industryData = useMemo(() => {
+    console.log('[DEBUG] industryData calculation:', {
+      hasRawComp: !!rawComp,
+      rawCompType: Array.isArray(rawComp) ? 'array' : typeof rawComp,
+      hasAvgData: !!(rawComp && rawComp.avg_data),
+      avgDataKeys: rawComp?.avg_data ? Object.keys(rawComp.avg_data) : [],
+      baseline: industryBaseline
+    })
+    
     if (rawComp && rawComp.avg_data) {
-      return industryBaseline === 'report_avg' ? rawComp.avg_data : rawComp.avg_data
+      console.log('[DEBUG] Using rawComp.avg_data:', rawComp.avg_data)
+      return rawComp.avg_data
     }
-    if (!Array.isArray(rawComp) || rawComp.length === 0) return null
+    if (!Array.isArray(rawComp) || rawComp.length === 0) {
+      console.log('[DEBUG] industryData returns null - rawComp is not array')
+      return null
+    }
 
     const getValues = (key) => rawComp
       .map(item => item?.[key])
@@ -929,7 +1007,7 @@ function ReportDetail({ report, onBack, onDelete, onUpdateLatest, quickUpdate, t
           )}
           
           {/* 概览Dashboard图片 */}
-          {(categories.overview.length > 0 || report.type === 'futures') && (
+          {((images && images.length > 0 && categories.overview.length > 0) || report.type === 'futures') && (
             <div className="mt-6">
               <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2 px-2">
                 <ImageIcon size={18} style={{color: 'var(--accent-primary)'}} />
@@ -937,9 +1015,9 @@ function ReportDetail({ report, onBack, onDelete, onUpdateLatest, quickUpdate, t
               </h3>
               <div className="chart-grid">
                 {report.type === 'futures' ? (
-                  report.images.map((img, idx) => (
+                  images && images.length > 0 ? images.map((img, idx) => (
                     <ImageCard key={idx} src={img} fullWidth onOpen={() => openLightbox(idx)} />
-                  ))
+                  )) : null
                 ) : (
                   categories.overview.map((img, idx) => (
                     <ImageCard key={idx} src={img} onOpen={() => openLightbox(idx)} />
@@ -1066,12 +1144,12 @@ function ReportDetail({ report, onBack, onDelete, onUpdateLatest, quickUpdate, t
       )}
 
       {/* Chart Grid for other tabs */}
-      {activeTab !== 'overview' && activeTab !== 'charts' && (
+      {activeTab !== 'overview' && activeTab !== 'interactive' && activeTab !== 'charts' && activeTab !== 'ai' && (
         <div className="chart-grid">
           {report.type === 'futures' ? (
-            report.images.map((img, idx) => (
+            images && images.length > 0 ? images.map((img, idx) => (
               <ImageCard key={idx} src={img} fullWidth onOpen={() => openLightbox(idx)} />
-            ))
+            )) : null
           ) : (
             currentImages.length > 0 ? (
               currentImages.map((img, idx) => (
